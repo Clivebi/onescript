@@ -1,0 +1,96 @@
+#pragma once
+#include <list>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "script.hpp"
+
+namespace Interpreter {
+class Parser {
+protected:
+    Script* mScript;
+
+    Parser() {}
+
+    std::list<std::string*> mStringHolder;
+    std::string mScanningString;
+
+public:
+    static Parser* current() {
+        static Parser parser;
+        return &parser;
+    }
+
+    void Start() { mScript = new Script(); }
+    Script* Finish() {
+        Script* ret = mScript;
+        mScript = NULL;
+        mScanningString.clear();
+        std::list<std::string*>::iterator iter = mStringHolder.begin();
+        while (iter != mStringHolder.end())
+        {
+            delete (*iter);
+            iter++;
+        }
+        mStringHolder.clear();
+        return ret;
+    }
+    //string parser helper function
+    void StartScanningString() { mScanningString.clear(); }
+    void AppendToScanningString(char ch) { mScanningString += ch; }
+    void AppendToScanningString(const char* text) { mScanningString += text; }
+    const char* FinishScanningString() { return CreateString(mScanningString.c_str()); }
+    const char* CreateString(const char* text) {
+        //TODO: use string pools
+        std::string* obj = new std::string(text);
+        mStringHolder.push_back(obj);
+        return obj->c_str();
+    }
+
+    //null instruction do nothing
+    Instruction* NULLObject();
+    //instruction list
+    Instruction* CreateObjectList(Instruction* element);
+    Instruction* AddObjectToObjectListHead(Instruction* list, Instruction* element);
+    Instruction* AddObjectToObjectList(Instruction* list, Instruction* element);
+
+    //var declaration read & write
+    Instruction* VarDeclarationExpresion(const std::string& name, Instruction* value);
+    Instruction* VarWriteExpresion(const std::string& name, Instruction* value);
+    Instruction* VarUpdateExpression(const std::string& name, Instruction* value,int opcode);
+    Instruction* VarReadExpresion(const std::string& name);
+
+    //const values
+    Instruction* CreateConst(const std::string& value);
+    Instruction* CreateConst(long value);
+    Instruction* CreateConst(double value);
+    
+    //function define & call function
+    Instruction* CreateFunction(const std::string& name, Instruction* formalParameters,
+                                Instruction* body);
+    Instruction* CreateFunctionCall(const std::string& name, Instruction* actualParameters);
+   
+    //arithmetic operation +-*/% ,> >= < <= == !=
+    Instruction* CreateArithmeticOperation(Instruction* first, Instruction* second, int opcode);
+    
+    //condition expresion such as if else if
+    Instruction* CreateConditionExpresion(Instruction* condition, Instruction* action);
+    
+    //if(...){} else if(...){} else{} statement
+    Instruction* CreateIFStatement(Instruction* one, Instruction* tow, Instruction* three);
+    
+    //return statement
+    Instruction* CreateReturnStatement(Instruction* value);
+
+    //for statement and break statement
+    Instruction* CreateForStatement(Instruction*init,Instruction* condition,Instruction*op,Instruction*body);
+    Instruction* CreateBreakStatement();
+    Instruction* CreateContinueStatement();
+
+    //parser ending
+    void SetEntryPoint(Instruction* value) { mScript->EntryPoint = value; }
+
+};
+
+}; // namespace Interpreter

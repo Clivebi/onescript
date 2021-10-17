@@ -1,0 +1,8 @@
+/build/
+script.tab.hpp
+script.tab.cpp
+script.lex.cpp
+script.lex.hpp
+Interpreter.dSYM/
+Interpreter
+test/test1.sc
