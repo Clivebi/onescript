@@ -1,5 +1,6 @@
-#include "vm.hpp"
 #include <iostream>
+
+#include "vm.hpp"
 
 Interpreter::Value Println(std::vector<Interpreter::Value>& values) {
     std::string result;
@@ -12,25 +13,19 @@ Interpreter::Value Println(std::vector<Interpreter::Value>& values) {
     return Interpreter::Value();
 }
 
+Interpreter::Value Len(std::vector<Interpreter::Value>& values) {
+    Interpreter::Value& arg = values.front();
+    assert(values.size() == 1);
+    return Interpreter::Value((long)arg.length());
+}
+
 Interpreter::Value TypeOf(std::vector<Interpreter::Value>& values) {
     Interpreter::Value& arg = values.front();
     assert(values.size() == 1);
-    switch (arg.Type) {
-    case Interpreter::ValueType::kNULL:
-        return Interpreter::Value("NULL");
-    case Interpreter::ValueType::kInteger:
-        return Interpreter::Value("Integer");
-    case Interpreter::ValueType::kFloat:
-        return Interpreter::Value("Float");
-    case Interpreter::ValueType::kString:
-        return Interpreter::Value("String");
-
-    default:
-        return Interpreter::Value("Unknown");
-    }
+    return Interpreter::Value(arg.TypeName());
 }
 
-Interpreter::BuiltinMethod g_builtinMethod[2] = {
-        {"Println", Println},
-        {"TypeOf",TypeOf}
-};
+int g_builtinMethod_size = 3;
+
+Interpreter::BuiltinMethod g_builtinMethod[3] = {
+        {"Println", Println}, {"TypeOf", TypeOf}, {"len", Len}};

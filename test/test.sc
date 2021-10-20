@@ -1,44 +1,87 @@
+#for statement test 
 #
-var pass = true;
+#
+
+var _test_pass = true;
+
 func assertEqual(a,b){
     if(a != b){
         Println("error here a=",a,"b=",b);
-        pass = false;
+        _test_pass = false;
     }
 }
 
-Println("测试算术运算与优先级");
+func assertNotEqual(a,b){
+    if(a == b){
+        Println("error here a=",a,"b=",b);
+        _test_pass = false;
+    } 
+}
+
+Println("test for (break,continue) statement");
+
+var _execute_count =0;
+var _not_executed  =0;
+
+for (var i =0;i< 9;i++){
+    _execute_count ++;
+    if (i>5){
+        continue;
+    }
+    _not_executed ++;
+}
+
+assertEqual(_execute_count,9);
+assertEqual(_not_executed,6);
+
+_execute_count = 0;
+_not_executed = 0;
+var _index = 0;
+for (;_index< 9;_index++){
+    _execute_count ++;
+    if (_index>5){
+        continue;
+    }
+    _not_executed ++;
+}
+
+_execute_count = 0;
+_not_executed = 0;
+_index = 0;
+for (;;_index++){
+    _execute_count ++;
+    if(_index > 8){
+        break;
+    }
+    _not_executed ++;
+}
+assertEqual(_execute_count,10);
+assertEqual(_not_executed,9);
+
+_execute_count = 0;
+_not_executed = 0;
+_index = 0;
+for {
+    _execute_count++;
+    if(_index > 8){
+        break;
+    }
+    _not_executed++;
+    _index ++;
+}
+assertEqual(_execute_count,10);
+assertEqual(_not_executed,9);
+
+Println("test arithmetic operation");
 assertEqual(1*(2+3),5);
 assertEqual(1+1-1,1);
 assertEqual(1+2*3,7);
 
-Println("测试作用域");
+Println("test shadow name");
 var name1 = 0;
 for (var name1 = 0; name1 < 6;name1++ ){
-    Println(name1);
 }
 assertEqual(name1,0);
-
-Println("测试break");
-var name2 = 0;
-for (var name1 = 0; name1 < 10;name1++ ){
-    if(name2 > 5){
-        break;
-    }
-    name2++;
-}
-assertEqual(name2,6);
-
-Println("测试break2");
-name2 = 1;
-for {
-    name2++;
-    if(name2 > 5){
-        break;
-    }
-}
-
-assertEqual(name2,6);
 
 var count = 0;
 var count2 = 0;
@@ -64,9 +107,3 @@ find_number(100);
 Println(count,count2,count3);
 var type = TypeOf(count);
 Println(type);
-
-if(pass){
-    Println("所有测试通过");
-}else{
-    Println("测试不通过");
-}

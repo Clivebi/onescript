@@ -39,10 +39,9 @@ Instruction* Parser::VarWriteExpresion(const std::string& name, Instruction* val
     LOG(mScript->DumpInstruction(obj, ""));
     return obj;
 }
-Instruction* Parser::VarUpdateExpression(const std::string& name, Instruction* value,int opcode)
-{
-    Instruction*obj = mScript->NewInstruction();
-    if(value != NULL){
+Instruction* Parser::VarUpdateExpression(const std::string& name, Instruction* value, int opcode) {
+    Instruction* obj = mScript->NewInstruction();
+    if (value != NULL) {
         obj->Refs.push_back(value->key);
     }
     obj->Name = name;
@@ -89,7 +88,7 @@ Instruction* Parser::CreateArithmeticOperation(Instruction* first, Instruction* 
         throw RuntimeException("opcode not invalid");
         return NULL;
     }
-    if(second == NULL){
+    if (second == NULL) {
         second = NULLObject();
     }
     Instruction* obj = mScript->NewInstruction(first, second);
@@ -146,6 +145,49 @@ Instruction* Parser::CreateBreakStatement() {
 Instruction* Parser::CreateContinueStatement() {
     Instruction* obj = mScript->NewInstruction();
     obj->OpCode = Instructions::kCONTINUEStatement;
+    LOG(mScript->DumpInstruction(obj, ""));
+    return obj;
+}
+Instruction* Parser::CreateMapItem(Instruction* key, Instruction* value) {
+    Instruction* obj = mScript->NewInstruction(key, value);
+    obj->OpCode = Instructions::kGroup;
+    LOG(mScript->DumpInstruction(obj, ""));
+    return obj;
+}
+Instruction* Parser::CreateMap(Instruction* list) {
+    Instruction* obj = mScript->NewInstruction(list);
+    obj->OpCode = Instructions::kCreateMap;
+    LOG(mScript->DumpInstruction(obj, ""));
+    return obj;
+}
+Instruction* Parser::CreateArray(Instruction* list) {
+    Instruction* obj = mScript->NewInstruction(list);
+    obj->OpCode = Instructions::kCreateArray;
+    LOG(mScript->DumpInstruction(obj, ""));
+    return obj;
+}
+Instruction* Parser::VarReadAtExpression(const std::string& name, Instruction* where) {
+    Instruction* obj = mScript->NewInstruction(where);
+    obj->OpCode = Instructions::kReadAt;
+    obj->Name = name;
+    LOG(mScript->DumpInstruction(obj, ""));
+    return obj;
+}
+Instruction* Parser::VarUpdateAtExression(const std::string& name, Instruction* where,
+                                          Instruction* value) {
+    Instruction* obj = mScript->NewInstruction(where, value);
+    obj->OpCode = Instructions::kWriteAt;
+    obj->Name = name;
+    LOG(mScript->DumpInstruction(obj, ""));
+    return obj;
+}
+Instruction* Parser::VarSlice(const std::string& name, Instruction* from, Instruction* to) {
+    if (from == NULL) {
+        from = NULLObject();
+    }
+    Instruction* obj = mScript->NewInstruction(from, to);
+    obj->OpCode = Instructions::kSlice;
+    obj->Name = name;
     LOG(mScript->DumpInstruction(obj, ""));
     return obj;
 }

@@ -3,7 +3,8 @@
 #include "logger.hpp"
 #define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
 
-extern Interpreter::BuiltinMethod g_builtinMethod[2];
+extern int g_builtinMethod_size;
+extern Interpreter::BuiltinMethod g_builtinMethod[];
 
 namespace Interpreter {
 BuiltinValue g_builtinVar[] = {
@@ -27,7 +28,7 @@ void Context::builtinVar() {
 }
 
 Executor::Executor() {
-    RegisgerFunction(g_builtinMethod, 2);
+    RegisgerFunction(g_builtinMethod, g_builtinMethod_size);
 }
 
 void Executor::Execute(Script* script) {
@@ -183,6 +184,16 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
         ctx->Flags |= Context::FLAGS_CONTINUE;
         return Value();
     }
+    case Instructions::kCreateMap:
+        return ExecuteCreateMap(ins, ctx);
+    case Instructions::kCreateArray:
+        return ExecuteCreateArray(ins, ctx);
+    case Instructions::kReadAt:
+        return ExecuteArrayReadWrite(ins, ctx);
+    case Instructions::kWriteAt:
+        return ExecuteArrayReadWrite(ins, ctx);
+    case Instructions::kSlice:
+        return ExecuteSlice(ins, ctx);
     default:
         assert(false);
     }
@@ -277,7 +288,7 @@ Value Executor::CallFunction(Instruction* ins, Context* ctx) {
     if (func == NULL) {
         RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
         if (method == NULL) {
-            return Value();
+            throw RuntimeException("call unknown function name:"+ins->Name);
         }
         Instruction* actualParamerList = mScript->GetInstruction(ins->Refs[0]);
         std::vector<Value> actualValues;
@@ -325,6 +336,8 @@ void Executor::ExecuteForStatement(Instruction* ins, Context* ctx) {
     if (insList[0]->OpCode != Instructions::kNop) {
         Execute(insList[0], ctx);
     }
+    //Instruction* CreateForStatement(Instruction*init,
+    //Instruction* condition,Instruction*op,Instruction*body);
     while (true) {
         Value val = Value(1l);
         if (insList[1]->OpCode != Instructions::kNop) {
@@ -340,11 +353,61 @@ void Executor::ExecuteForStatement(Instruction* ins, Context* ctx) {
         if (ctx->Flags & Context::FLAGS_RETURN) {
             break;
         }
+        ctx->Flags = 0;
         if (insList[2]->OpCode != Instructions::kNop) {
             Execute(insList[2], ctx);
         }
-        ctx->Flags = 0;
     }
+}
+
+Value Executor::ExecuteCreateMap(Instruction* ins, Context* ctx) {
+    Instruction* list = mScript->GetInstruction(ins->Refs[0]);
+    std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
+    std::map<Value, Value> map_value;
+    Value val = Value(map_value);
+    std::vector<Instruction*>::iterator iter = items.begin();
+    while (iter != items.end()) {
+        Instruction* key = mScript->GetInstruction((*iter)->Refs[0]);
+        Instruction* value = mScript->GetInstruction((*iter)->Refs[1]);
+        Value keyVal = Execute(key,ctx);
+        Value valVal = Execute(value,ctx);
+        val._map[keyVal] = valVal;
+        iter++;
+    }
+    return val;
+}
+Value Executor::ExecuteCreateArray(Instruction* ins, Context* ctx) {
+    Instruction* list = mScript->GetInstruction(ins->Refs[0]);
+    std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
+    std::vector<Value> array_value;
+    Value val = Value(array_value);
+    std::vector<Instruction*>::iterator iter = items.begin();
+    while (iter != items.end()) {
+        val._array.push_back(Execute((*iter), ctx));
+        iter++;
+    }
+    return val;
+}
+Value Executor::ExecuteSlice(Instruction* ins, Context* ctx) {
+    Instruction* from = mScript->GetInstruction(ins->Refs[0]);
+    Instruction* to = mScript->GetInstruction(ins->Refs[1]);
+    Value fromVal = Execute(from, ctx);
+    Value toVal = Execute(to, ctx);
+    Value opObj = ctx->GetVarValue(ins->Name);
+    return opObj.sub_slice(fromVal, toVal);
+}
+Value Executor::ExecuteArrayReadWrite(Instruction* ins, Context* ctx) {
+    Instruction* where = mScript->GetInstruction(ins->Refs[0]);
+    Value index = Execute(where, ctx);
+    Value opObj = ctx->GetVarValue(ins->Name);
+    if (ins->OpCode == Instructions::kReadAt) {
+        return opObj[index];
+    }
+    Instruction* value = mScript->GetInstruction(ins->Refs[1]);
+    Value eleVal = Execute(value, ctx);
+    opObj.set_value(index, eleVal);
+    ctx->SetVarValue(ins->Name, opObj);
+    return opObj;
 }
 
 } // namespace Interpreter

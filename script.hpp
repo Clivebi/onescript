@@ -19,8 +19,8 @@ const int kReadVar = CODE_BASE + 3;
 const int kWriteVar = CODE_BASE + 4;
 const int kNewFunction = CODE_BASE + 5;
 const int kCallFunction = CODE_BASE + 6;
-const int kPushBlock = CODE_BASE + 7;
-const int kPopBlock = CODE_BASE + 8;
+const int kReadAt = CODE_BASE + 7;
+const int kWriteAt = CODE_BASE + 8;
 const int kGroup = CODE_BASE + 9;
 const int kContitionExpression = CODE_BASE + 10;
 const int kIFStatement = CODE_BASE + 11;
@@ -28,6 +28,9 @@ const int kRETURNStatement = CODE_BASE + 12;
 const int kFORStatement = CODE_BASE + 13;
 const int kCONTINUEStatement = CODE_BASE + 14;
 const int kBREAKStatement = CODE_BASE + 15;
+const int kCreateMap = CODE_BASE + 16;
+const int kCreateArray = CODE_BASE + 17;
+const int kSlice = CODE_BASE + 18;
 
 const int kArithmeticOP = 0x100;
 const int kADD = kArithmeticOP + 1;
@@ -41,15 +44,15 @@ const int kLT = kArithmeticOP + 8;
 const int kLE = kArithmeticOP + 9;
 const int kEQ = kArithmeticOP + 10;
 const int kNE = kArithmeticOP + 11;
-const int kNOT = kArithmeticOP+12;
+const int kNOT = kArithmeticOP + 12;
 const int kMAXArithmeticOP = kArithmeticOP + 12;
 
-const int kADDWrite= 0x201;
-const int kSUBWrite= 0x202;
-const int kMULWrite= 0x203;
-const int kDIVWrite= 0x204;
-const int kINCWrite= 0x205;
-const int kDECWrite= 0x206;
+const int kADDWrite = 0x201;
+const int kSUBWrite = 0x202;
+const int kMULWrite = 0x203;
+const int kDIVWrite = 0x204;
+const int kINCWrite = 0x205;
+const int kDECWrite = 0x206;
 }; // namespace Instructions
 
 class Instruction {
@@ -75,8 +78,8 @@ public:
         if (OpCode >= Instructions::kADD && OpCode <= Instructions::kMAXArithmeticOP) {
             return "Arithmetic Operation";
         }
-        if (OpCode >= Instructions::kADDWrite && OpCode <= Instructions::kDECWrite){
-            return "Update Var:"+Name;
+        if (OpCode >= Instructions::kADDWrite && OpCode <= Instructions::kDECWrite) {
+            return "Update Var:" + Name;
         }
         switch (OpCode) {
         case Instructions::kNop:
@@ -107,6 +110,16 @@ public:
             return "break Statement";
         case Instructions::kCONTINUEStatement:
             return "continue Statement";
+        case Instructions::kReadAt:
+            return "read at index";
+        case Instructions::kWriteAt:
+            return "write at index";
+        case Instructions::kCreateMap:
+            return "Create Map";
+        case Instructions::kCreateArray:
+            return "Create Array";
+        case Instructions::kSlice:
+            return "Slice Array";
 
         default:
             return "Unknown Op";
@@ -234,7 +247,7 @@ public:
         std::stringstream stream;
         stream << prefix;
         if (ins->OpCode == Instructions::kConst) {
-            stream << ins->key << " " << ins->ToString() << GetConstValue(ins->Refs[0]).ToString()
+            stream << ins->key << " " << ins->ToString()<< GetConstValue(ins->Refs[0]).ToString()
                    << std::endl;
             return stream.str();
         }

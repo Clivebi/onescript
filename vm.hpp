@@ -160,6 +160,10 @@ protected:
     void  ExecuteIfStatement(Instruction* ins, Context* ctx);
     void  ExecuteForStatement(Instruction* ins, Context* ctx);
     Value ExecuteArithmeticOperation(Instruction* ins, Context* ctx);
+    Value ExecuteCreateMap(Instruction*ins,Context*ctx);
+    Value ExecuteCreateArray(Instruction*ins,Context*ctx);
+    Value ExecuteSlice(Instruction*ins,Context*ctx);
+    Value ExecuteArrayReadWrite(Instruction*ins,Context*ctx);
     RUNTIME_FUNCTION GetBuiltinMethod(const std::string& name);
 
 protected:

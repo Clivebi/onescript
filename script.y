@@ -23,7 +23,7 @@ void yyerror(const char *s);
 %token  <identifier>VAR FUNCTION FOR IF ELIF ELSE ADD SUB MUL DIV MOD ASSIGN
         EQ NE GT GE LT LE LP RP LC RC SEMICOLON IDENTIFIER 
         BREAK CONTINUE RETURN COMMA STRING_LITERAL COLON ADDASSIGN SUBASSIGN
-        MULASSIGN DIVASSIGN INC DEC NOT
+        MULASSIGN DIVASSIGN INC DEC NOT LB RB
 
 %token <value_integer> INT_LITERAL
 %token <value_double>  DOUBLE_LITERAL
@@ -50,14 +50,16 @@ void yyerror(const char *s);
 %type <object> const_value value_expression compare_expression math_expression
 
 %type <object> func_declaration func_call_expression return_expression
-%type <object> formal_parameter formal_parameterlist actual_parameterlist
+%type <object> formal_parameter formal_parameterlist value_list
 
 %type <object> statementlist statement
 %type <object> statement_in_block_list statement_in_block block
 %type <object> condition_statement if_expresion elseif_expresion elseif_expresionlist else_expresion
 
-%type <object> for_init for_statement
+%type <object> for_init for_statement for_condition for_update
 %type <object> break_expression continue_expression 
+%type <object> map_value array_value map_item map_item_list
+%type <object> index_to_read slice index_to_write key_value
 %%
 
 %start  startstatement;
@@ -189,8 +191,28 @@ for_init: var_declaration_and_assign
         }
         ;
 
+for_condition: value_expression
+        {
+                $$=$1;
+        }
+        |
+        {
+                $$=Parser::current()->NULLObject();
+        }
+        ;
 
-for_statement: FOR LP for_init SEMICOLON value_expression SEMICOLON assign_expression_list RP block
+for_update:assign_expression_list
+        {
+                $$=$1;
+        }
+        |
+        {
+                $$=Parser::current()->NULLObject();
+        }
+        ;
+
+
+for_statement: FOR LP for_init SEMICOLON for_condition SEMICOLON for_update RP block
         {
                 $$=Parser::current()->CreateForStatement($3,$5,$7,$9);
         }
@@ -231,7 +253,7 @@ func_declaration:FUNCTION IDENTIFIER LP formal_parameterlist RP block
         }
         ;
 
-func_call_expression: IDENTIFIER LP actual_parameterlist RP
+func_call_expression: IDENTIFIER LP value_list RP
         {
                 $$=Parser::current()->CreateFunctionCall($1,$3);
         }
@@ -259,13 +281,13 @@ formal_parameter:IDENTIFIER
         ;
 
 
-actual_parameterlist:actual_parameterlist COMMA value_expression
+value_list:value_list COMMA value_expression
         {
-                $$= Parser::current()->AddObjectToObjectList($1,$3);
+                $$=Parser::current()->AddObjectToObjectList($1,$3);    
         }
         |value_expression
         {
-                $$= Parser::current()->CreateObjectList($1);
+                $$=Parser::current()->CreateObjectList($1);
         }
         ;
 
@@ -293,6 +315,22 @@ value_expression: const_value
         |LP math_expression RP
         {
                 $$=$2;
+        }
+        |map_value
+        {
+                $$=$1;
+        }
+        |array_value
+        {
+                $$=$1;
+        }
+        |index_to_read
+        {
+                $$=$1;
+        }
+        |slice
+        {
+                $$=$1;
         }
         ;
 
@@ -379,6 +417,12 @@ assign_expression: IDENTIFIER ASSIGN value_expression
         }
         ;
 
+index_to_write:IDENTIFIER LB key_value RB ASSIGN value_expression
+        {
+                $$=Parser::current()->VarUpdateAtExression($1,$3,$6);
+        }
+        ;
+
 assign_expression_list: assign_expression_list COMMA assign_expression
         {
                $$=Parser::current()->AddObjectToObjectList($1,$3);  
@@ -389,7 +433,66 @@ assign_expression_list: assign_expression_list COMMA assign_expression
         }
         ;
 
+
+map_item:value_expression COLON value_expression
+        {
+                $$=Parser::current()->CreateMapItem($1,$3);
+        }
+        ;
+map_item_list:map_item_list COMMA map_item
+        {
+                $$=Parser::current()->AddObjectToObjectList($1,$3); 
+        }
+        |map_item
+        {
+                $$=Parser::current()->CreateObjectList($1);  
+        }
+        ;
+
+array_value:LB value_list RB
+        {
+                $$=Parser::current()->CreateArray($2);
+        }
+        ;
+
+map_value: LC map_item_list RC
+        {
+                $$=Parser::current()->CreateMap($2);
+        }
+        ;
+
+key_value:math_expression
+        {
+                $$=$1;
+        }
+        |const_value
+        {
+                $$=$1;
+        }
+        |IDENTIFIER{
+                $$=Parser::current()->VarReadExpresion($1);
+        }
+        ;
+
+index_to_read:IDENTIFIER LB key_value RB
+        {
+                $$=Parser::current()->VarReadAtExpression($1,$3);
+        }
+        ;
+
+slice:IDENTIFIER LB key_value COLON key_value RB
+        {
+                $$=Parser::current()->VarSlice($1,$3,$5);
+        }
+        |IDENTIFIER LB COLON key_value RB
+        {
+                $$=Parser::current()->VarSlice($1,NULL,$4);
+        }
+        ;
+
+
 statement_in_block:var_declaration SEMICOLON
+        |index_to_write SEMICOLON
         |assign_expression SEMICOLON
         |condition_statement
         |return_expression SEMICOLON

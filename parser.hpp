@@ -88,6 +88,13 @@ public:
     Instruction* CreateBreakStatement();
     Instruction* CreateContinueStatement();
 
+    Instruction* CreateMapItem(Instruction*key,Instruction*value);
+    Instruction* CreateMap(Instruction*list);
+    Instruction* CreateArray(Instruction*list);
+    Instruction* VarReadAtExpression(const std::string& name,Instruction*where);
+    Instruction* VarUpdateAtExression(const std::string& name, Instruction* where,Instruction*value);
+    Instruction* VarSlice(const std::string& name, Instruction* from,Instruction*to);
+
     //parser ending
     void SetEntryPoint(Instruction* value) { mScript->EntryPoint = value; }
 

@@ -58,6 +58,9 @@ int yywrap(void)
 <INITIAL>"++"        return INC;
 <INITIAL>"--"        return DEC;
 <INITIAL>"!"         return NOT;
+<INITIAL>"["         return LB;
+<INITIAL>"]"         return RB;
+<INITIAL>":"         return COLON;
 
 
 <INITIAL>[A-Za-z_][A-Za-z_0-9]* {
@@ -94,7 +97,7 @@ int yywrap(void)
     } else {
         sprintf(buf, "0x%02x", (unsigned char)yytext[0]);
     }
-    printf("meet:%s",buf);
+    printf("meet:%s %d",buf,yylineno);
     abort();
 }
 
