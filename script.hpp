@@ -32,6 +32,7 @@ const int kCreateMap = CODE_BASE + 16;
 const int kCreateArray = CODE_BASE + 17;
 const int kSlice = CODE_BASE + 18;
 const int kForInStatement = CODE_BASE + 19;
+const int kSwitchCaseStatement = CODE_BASE+20;
 
 const int kArithmeticOP = 0x100;
 const int kADD = kArithmeticOP + 1;
@@ -203,6 +204,7 @@ public:
         mInstructionTable[ins->key] = ins;
         return ins;
     }
+    //TODO use const value pool
     Instruction* NewConst(const std::string& value) {
         Value val = Value(value);
         long key = mConstKey;

@@ -100,7 +100,7 @@ public:
     Instruction* VarSlice(const std::string& name, Instruction* from, Instruction* to);
     Instruction* CreateForInStatement(const std::string& key, const std::string& val,
                                       Instruction* obj, Instruction* body);
-
+    Instruction* CreateSwitchCaseStatement(Instruction*value,Instruction*cases,Instruction*defbranch);
     //parser ending
     void SetEntryPoint(Instruction* value) { mScript->EntryPoint = value; }
 };

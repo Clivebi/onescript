@@ -23,7 +23,7 @@ void yyerror(const char *s);
 %token  <identifier>VAR FUNCTION FOR IF ELIF ELSE ADD SUB MUL DIV MOD ASSIGN
         EQ NE GT GE LT LE LP RP LC RC SEMICOLON IDENTIFIER 
         BREAK CONTINUE RETURN COMMA STRING_LITERAL COLON ADDASSIGN SUBASSIGN
-        MULASSIGN DIVASSIGN INC DEC NOT LB RB IN
+        MULASSIGN DIVASSIGN INC DEC NOT LB RB IN SWITCH CASE DEFAULT
 
 %token <value_integer> INT_LITERAL
 %token <value_double>  DOUBLE_LITERAL
@@ -61,6 +61,7 @@ void yyerror(const char *s);
 %type <object> map_value array_value map_item map_item_list
 %type <object> index_to_read slice index_to_write key_value
 %type <object> for_in_statement
+%type <object> case_item case_item_list switch_case_statement const_value_list
 %%
 
 %start  startstatement;
@@ -245,6 +246,16 @@ const_value:INT_LITERAL
         |STRING_LITERAL
         {
                 $$= Parser::current()->CreateConst($1);
+        }
+        ;
+
+const_value_list:const_value_list COMMA const_value
+        {
+                $$=Parser::current()->AddObjectToObjectList($1,$3);        
+        }
+        |const_value
+        {
+                $$=Parser::current()->CreateObjectList($1);
         }
         ;
 
@@ -505,6 +516,32 @@ slice:IDENTIFIER LB key_value COLON key_value RB
         }
         ;
 
+case_item:CASE const_value_list COLON block
+        {
+                Instruction* obj =Parser::current()->CreateObjectList($2);
+                $$=Parser::current()->AddObjectToObjectList(obj,$4);
+        }
+        ;
+case_item_list:case_item_list case_item
+        {
+                $$=Parser::current()->AddObjectToObjectList($1,$2);  
+        }
+        |case_item
+        {
+                $$=Parser::current()->CreateObjectList($1);
+        }
+        ;
+
+switch_case_statement: SWITCH LP value_expression RP LC case_item_list DEFAULT COLON block RC
+        {
+                $$=Parser::current()->CreateSwitchCaseStatement($3,$6,$9);
+        }
+        |SWITCH LP value_expression RP LC case_item_list RC
+        {
+                $$=Parser::current()->CreateSwitchCaseStatement($3,$6,NULL);
+        }
+        ;
+
 
 statement_in_block:var_declaration SEMICOLON
         |index_to_write SEMICOLON
@@ -516,6 +553,7 @@ statement_in_block:var_declaration SEMICOLON
         |break_expression SEMICOLON
         |continue_expression SEMICOLON
         |for_in_statement
+        |switch_case_statement
         ;
 
 statement_in_block_list:statement_in_block_list statement_in_block

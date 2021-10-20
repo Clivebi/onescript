@@ -112,6 +112,11 @@ Println(type);
 var array_item = "string";
 var list = ["value1","value2",100,array_item];
 
+var sub_list = list[1:];
+
+assertEqual(len(sub_list),3);
+assertEqual(sub_list[0],"value2");
+
 for v in list{
     Println(v);
 }
@@ -128,3 +133,29 @@ assertEqual(dic["name"],"wawa");
 for k,v in dic{
     Println(ToString(k)+":"+ToString(v));
 }
+
+var string_count = 0;
+func printValueType(val){
+    switch(TypeOf(val)){
+        case "String":{
+            Println(val,"is a string");
+            break;
+            string_count++;
+        }
+        case "Integer":{
+            Println(val,"is a Integer");
+        }
+        case "Float":{
+            Println(val,"is a Float");
+        }
+        default:{
+            Println("other...");
+        }
+    }
+}
+assertEqual(string_count,0);
+printValueType("100");
+printValueType(100);
+printValueType(3.1415926);
+var nullobj;
+printValueType(nullobj);

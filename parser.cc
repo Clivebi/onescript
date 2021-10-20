@@ -224,7 +224,7 @@ Instruction* Parser::VarSlice(const std::string& name, Instruction* from, Instru
     if (from == NULL) {
         from = NULLObject();
     }
-    if(to == NULL){
+    if (to == NULL) {
         to = NULLObject();
     }
     Instruction* obj = mScript->NewInstruction(from, to);
@@ -244,6 +244,18 @@ Instruction* Parser::CreateForInStatement(const std::string& key, const std::str
     Instruction* obj = mScript->NewInstruction(iterobj, body);
     obj->OpCode = Instructions::kForInStatement;
     obj->Name = name;
+    if (mLogInstruction) {
+        LOG(mScript->DumpInstruction(obj, ""));
+    }
+    return obj;
+}
+Instruction* Parser::CreateSwitchCaseStatement(Instruction* value, Instruction* cases,
+                                               Instruction* defbranch) {
+    if (defbranch == NULL) {
+        defbranch = NULLObject();
+    }
+    Instruction* obj = mScript->NewInstruction(value, cases, defbranch);
+    obj->OpCode = Instructions::kSwitchCaseStatement;
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
     }

@@ -2,7 +2,7 @@
 解释和执行分离，这样可以实现解析之后的结果进行序列化和反序列化  
 ## 基本语法
 值类型  
-string,integer,float,array,map,NULL
+string,integer,float,array,map,NULL  
 变量定义  
 ```
 var name1,name2,name3="1234";
@@ -163,3 +163,5 @@ for k,v in dic{
     Println(ToString(k)+":"+ToString(v));
 }
 ```
+## 参考
+https://github.com/stdpain/compiler-interpreter

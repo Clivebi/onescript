@@ -21,6 +21,7 @@ public:
         File,
         Function,
         For,
+        Switch,
     };
 
     enum {
@@ -49,7 +50,12 @@ public:
         builtinVar();
     }
 
+    bool isReturnAvaliable(){return isInFunctionBody();}
+    bool isBreakAvaliable(){return isInSwitchStatement() | isInForStatement();}
+    bool isContinueAvaliable(){return isInForStatement();}
+
     bool isInForStatement() { return mContextType == For; }
+    bool isInSwitchStatement(){return mContextType == Switch;}
 
     bool isInFunctionBody() {
         Context* seek = this;
@@ -173,7 +179,10 @@ protected:
     Value ExecuteCreateArray(Instruction* ins, Context* ctx);
     Value ExecuteSlice(Instruction* ins, Context* ctx);
     Value ExecuteArrayReadWrite(Instruction* ins, Context* ctx);
+    Value ExecuteSwitchStatement(Instruction* ins, Context* ctx);
     RUNTIME_FUNCTION GetBuiltinMethod(const std::string& name);
+
+    std::vector<Value> InstructionToValue(std::vector<Instruction*> ins,Context*ctx);
 
 protected:
     Script* mScript;

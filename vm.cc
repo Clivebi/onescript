@@ -58,7 +58,7 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
         return ctx->ReturnValue;
     }
     if (ctx->Flags & (Context::FLAGS_BREAK | Context::FLAGS_CONTINUE)) {
-        assert(ctx->isInForStatement());
+        assert(ctx->isInForStatement() || ctx->isInSwitchStatement());
         LOG("被break/continue跳过执行:" + ins->ToString());
         return Value();
     }
@@ -156,7 +156,7 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
     }
 
     case Instructions::kRETURNStatement: {
-        if (!ctx->isInFunctionBody()) {
+        if (!ctx->isReturnAvaliable()) {
             throw RuntimeException("return statement must in the function body");
         }
         ctx->ReturnValue = Execute(mScript->GetInstruction(ins->Refs[0]), ctx);
@@ -176,15 +176,21 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
         delete newCtx;
         return Value();
     }
+    case Instructions::kSwitchCaseStatement: {
+        Context* newCtx = new Context(Context::Switch, ctx);
+        ExecuteSwitchStatement(ins, newCtx);
+        delete newCtx;
+        return Value();
+    }
     case Instructions::kBREAKStatement: {
-        if (!ctx->isInForStatement()) {
-            throw RuntimeException("break statement must in the for block");
+        if (!ctx->isBreakAvaliable()) {
+            throw RuntimeException("break statement must in the for block or switch block");
         }
         ctx->Flags |= Context::FLAGS_BREAK;
         return Value();
     }
     case Instructions::kCONTINUEStatement: {
-        if (!ctx->isInForStatement()) {
+        if (!ctx->isContinueAvaliable()) {
             throw RuntimeException("continue statement must in the for block");
         }
         ctx->Flags |= Context::FLAGS_CONTINUE;
@@ -201,7 +207,8 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
     case Instructions::kSlice:
         return ExecuteSlice(ins, ctx);
     default:
-        assert(false);
+        LOG("Unknown Instruction:" + ins->ToString());
+        return Value();
     }
 }
 
@@ -478,6 +485,56 @@ Value Executor::ExecuteArrayReadWrite(Instruction* ins, Context* ctx) {
     opObj.set_value(index, eleVal);
     ctx->SetVarValue(ins->Name, opObj);
     return opObj;
+}
+
+std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList, Context* ctx) {
+    std::vector<Value> result;
+    std::vector<Instruction*>::iterator iter = insList.begin();
+    while (iter != insList.end()) {
+        result.push_back(Execute(*iter, ctx));
+        iter++;
+    }
+    return result;
+}
+
+Value Executor::ExecuteSwitchStatement(Instruction* ins, Context* ctx) {
+    Instruction* value = mScript->GetInstruction(ins->Refs[0]);
+    Instruction* cases = mScript->GetInstruction(ins->Refs[1]);
+    Instruction* defaultBranch = mScript->GetInstruction(ins->Refs[2]);
+    std::vector<Instruction*> case_array = mScript->GetInstructions(cases->Refs);
+    Value val = Execute(value, ctx);
+    std::vector<Instruction*>::iterator iter = case_array.begin();
+    bool casehit = false;
+    while (iter != case_array.end()) {
+        std::vector<Instruction*> conditions =
+                mScript->GetInstructions(mScript->GetInstruction((*iter)->Refs[0])->Refs);
+        std::vector<Value> condition_values = InstructionToValue(conditions, ctx);
+        Instruction* actions = mScript->GetInstruction((*iter)->Refs[1]);
+        std::vector<Value>::iterator iter2 = condition_values.begin();
+        bool found = false;
+        while (iter2 != condition_values.end()) {
+            if (val == *iter2) {
+                found = true;
+                break;
+            }
+            iter2++;
+        }
+        if (!found) {
+            iter++;
+            continue;
+        }
+        casehit = true;
+        Execute(actions, ctx);
+        if (ctx->Flags & Context::FLAGS_BREAK) {
+            break;
+        }
+        iter++;
+    }
+    if (casehit) {
+        return Value();
+    }
+    Execute(defaultBranch, ctx);
+    return Value();
 }
 
 } // namespace Interpreter
