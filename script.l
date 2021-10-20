@@ -61,6 +61,7 @@ int yywrap(void)
 <INITIAL>"["         return LB;
 <INITIAL>"]"         return RB;
 <INITIAL>":"         return COLON;
+<INITIAL>"in"        return IN;
 
 
 <INITIAL>[A-Za-z_][A-Za-z_0-9]* {

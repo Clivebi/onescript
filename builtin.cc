@@ -25,7 +25,14 @@ Interpreter::Value TypeOf(std::vector<Interpreter::Value>& values) {
     return Interpreter::Value(arg.TypeName());
 }
 
-int g_builtinMethod_size = 3;
+Interpreter::Value ToString(std::vector<Interpreter::Value>& values) {
+    Interpreter::Value& arg = values.front();
+    assert(values.size() == 1);
+    return Interpreter::Value(arg.ToString());
+}
 
-Interpreter::BuiltinMethod g_builtinMethod[3] = {
-        {"Println", Println}, {"TypeOf", TypeOf}, {"len", Len}};
+int g_builtinMethod_size = 4;
+
+Interpreter::BuiltinMethod g_builtinMethod[4] = {
+        {"Println", Println}, {"TypeOf", TypeOf}, {"len", Len}
+        ,"ToString",ToString};

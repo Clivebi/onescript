@@ -16,6 +16,8 @@ protected:
     std::list<std::string*> mStringHolder;
     std::string mScanningString;
 
+    bool mLogInstruction;
+
 public:
     static Parser* current() {
         static Parser parser;
@@ -28,14 +30,14 @@ public:
         mScript = NULL;
         mScanningString.clear();
         std::list<std::string*>::iterator iter = mStringHolder.begin();
-        while (iter != mStringHolder.end())
-        {
+        while (iter != mStringHolder.end()) {
             delete (*iter);
             iter++;
         }
         mStringHolder.clear();
         return ret;
     }
+    void SetLogInstruction(bool log) { mLogInstruction = log; }
     //string parser helper function
     void StartScanningString() { mScanningString.clear(); }
     void AppendToScanningString(char ch) { mScanningString += ch; }
@@ -58,46 +60,49 @@ public:
     //var declaration read & write
     Instruction* VarDeclarationExpresion(const std::string& name, Instruction* value);
     Instruction* VarWriteExpresion(const std::string& name, Instruction* value);
-    Instruction* VarUpdateExpression(const std::string& name, Instruction* value,int opcode);
+    Instruction* VarUpdateExpression(const std::string& name, Instruction* value, int opcode);
     Instruction* VarReadExpresion(const std::string& name);
 
     //const values
     Instruction* CreateConst(const std::string& value);
     Instruction* CreateConst(long value);
     Instruction* CreateConst(double value);
-    
+
     //function define & call function
     Instruction* CreateFunction(const std::string& name, Instruction* formalParameters,
                                 Instruction* body);
     Instruction* CreateFunctionCall(const std::string& name, Instruction* actualParameters);
-   
+
     //arithmetic operation +-*/% ,> >= < <= == !=
     Instruction* CreateArithmeticOperation(Instruction* first, Instruction* second, int opcode);
-    
+
     //condition expresion such as if else if
     Instruction* CreateConditionExpresion(Instruction* condition, Instruction* action);
-    
+
     //if(...){} else if(...){} else{} statement
     Instruction* CreateIFStatement(Instruction* one, Instruction* tow, Instruction* three);
-    
+
     //return statement
     Instruction* CreateReturnStatement(Instruction* value);
 
     //for statement and break statement
-    Instruction* CreateForStatement(Instruction*init,Instruction* condition,Instruction*op,Instruction*body);
+    Instruction* CreateForStatement(Instruction* init, Instruction* condition, Instruction* op,
+                                    Instruction* body);
     Instruction* CreateBreakStatement();
     Instruction* CreateContinueStatement();
 
-    Instruction* CreateMapItem(Instruction*key,Instruction*value);
-    Instruction* CreateMap(Instruction*list);
-    Instruction* CreateArray(Instruction*list);
-    Instruction* VarReadAtExpression(const std::string& name,Instruction*where);
-    Instruction* VarUpdateAtExression(const std::string& name, Instruction* where,Instruction*value);
-    Instruction* VarSlice(const std::string& name, Instruction* from,Instruction*to);
+    Instruction* CreateMapItem(Instruction* key, Instruction* value);
+    Instruction* CreateMap(Instruction* list);
+    Instruction* CreateArray(Instruction* list);
+    Instruction* VarReadAtExpression(const std::string& name, Instruction* where);
+    Instruction* VarUpdateAtExression(const std::string& name, Instruction* where,
+                                      Instruction* value);
+    Instruction* VarSlice(const std::string& name, Instruction* from, Instruction* to);
+    Instruction* CreateForInStatement(const std::string& key, const std::string& val,
+                                      Instruction* obj, Instruction* body);
 
     //parser ending
     void SetEntryPoint(Instruction* value) { mScript->EntryPoint = value; }
-
 };
 
 }; // namespace Interpreter

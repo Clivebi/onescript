@@ -2,6 +2,7 @@
 #pragma once
 #include <stdlib.h>
 
+#include <list>
 #include <map>
 #include <string>
 #include <vector>
@@ -90,7 +91,7 @@ public:
         return Value(ToInteger() % right.ToInteger());
     }
     bool operator<(const Value& right) const {
-        if(Type == ValueType::kString && right.Type == ValueType::kString){
+        if (Type == ValueType::kString && right.Type == ValueType::kString) {
             return bytes < right.bytes;
         }
         if (!IsArithmeticOperationEnabled(right)) {
@@ -99,7 +100,7 @@ public:
         return ToFloat() < right.ToFloat();
     }
     bool operator<=(const Value& right) const {
-        if(Type == ValueType::kString && right.Type == ValueType::kString){
+        if (Type == ValueType::kString && right.Type == ValueType::kString) {
             return bytes <= right.bytes;
         }
         if (!IsArithmeticOperationEnabled(right)) {
@@ -108,7 +109,7 @@ public:
         return ToFloat() <= right.ToFloat();
     }
     bool operator>(const Value& right) const {
-        if(Type == ValueType::kString && right.Type == ValueType::kString){
+        if (Type == ValueType::kString && right.Type == ValueType::kString) {
             return bytes > right.bytes;
         }
         if (!IsArithmeticOperationEnabled(right)) {
@@ -117,7 +118,7 @@ public:
         return ToFloat() > right.ToFloat();
     }
     bool operator>=(const Value& right) const {
-        if(Type == ValueType::kString && right.Type == ValueType::kString){
+        if (Type == ValueType::kString && right.Type == ValueType::kString) {
             return bytes >= right.bytes;
         }
         if (!IsArithmeticOperationEnabled(right)) {
@@ -300,7 +301,7 @@ public:
         char buffer[16] = {0};
         switch (Type) {
         case ValueType::kString:
-            return "\""+bytes+"\"";
+            return "\"" + bytes + "\"";
         case ValueType::kInteger:
             snprintf(buffer, 16, "%ld", Integer);
             return buffer;
@@ -375,4 +376,23 @@ private:
                (right.Type == ValueType::kFloat || right.Type == ValueType::kInteger);
     }
 };
+
+inline std::list<std::string> split(const std::string& text, char split_char) {
+    std::list<std::string> result;
+    std::string part="";
+    std::string::const_iterator iter = text.begin();
+    while (iter != text.end())
+    {
+        if(*iter == split_char){
+            result.push_back(part);
+            part = "";
+            iter++;
+            continue;
+        }
+        part += (*iter);
+        iter++;
+    }
+    result.push_back(part);
+    return result;
+}
 } // namespace Interpreter

@@ -31,6 +31,7 @@ const int kBREAKStatement = CODE_BASE + 15;
 const int kCreateMap = CODE_BASE + 16;
 const int kCreateArray = CODE_BASE + 17;
 const int kSlice = CODE_BASE + 18;
+const int kForInStatement = CODE_BASE + 19;
 
 const int kArithmeticOP = 0x100;
 const int kADD = kArithmeticOP + 1;
@@ -120,6 +121,8 @@ public:
             return "Create Array";
         case Instructions::kSlice:
             return "Slice Array";
+        case Instructions::kForInStatement:
+            return "for in statement";
 
         default:
             return "Unknown Op";
@@ -247,7 +250,7 @@ public:
         std::stringstream stream;
         stream << prefix;
         if (ins->OpCode == Instructions::kConst) {
-            stream << ins->key << " " << ins->ToString()<< GetConstValue(ins->Refs[0]).ToString()
+            stream << ins->key << " " << ins->ToString() << GetConstValue(ins->Refs[0]).ToString()
                    << std::endl;
             return stream.str();
         }

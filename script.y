@@ -23,7 +23,7 @@ void yyerror(const char *s);
 %token  <identifier>VAR FUNCTION FOR IF ELIF ELSE ADD SUB MUL DIV MOD ASSIGN
         EQ NE GT GE LT LE LP RP LC RC SEMICOLON IDENTIFIER 
         BREAK CONTINUE RETURN COMMA STRING_LITERAL COLON ADDASSIGN SUBASSIGN
-        MULASSIGN DIVASSIGN INC DEC NOT LB RB
+        MULASSIGN DIVASSIGN INC DEC NOT LB RB IN
 
 %token <value_integer> INT_LITERAL
 %token <value_double>  DOUBLE_LITERAL
@@ -60,6 +60,7 @@ void yyerror(const char *s);
 %type <object> break_expression continue_expression 
 %type <object> map_value array_value map_item map_item_list
 %type <object> index_to_read slice index_to_write key_value
+%type <object> for_in_statement
 %%
 
 %start  startstatement;
@@ -219,6 +220,16 @@ for_statement: FOR LP for_init SEMICOLON for_condition SEMICOLON for_update RP b
         |FOR block
         {
                 $$=Parser::current()->CreateForStatement(NULL,NULL,NULL,$2);
+        }
+        ;
+
+for_in_statement:FOR IDENTIFIER COMMA IDENTIFIER IN value_expression block
+        {
+                $$=Parser::current()->CreateForInStatement($2,$4,$6,$7);
+        }
+        | FOR IDENTIFIER IN value_expression block
+        {
+                $$=Parser::current()->CreateForInStatement("",$2,$4,$5);
         }
         ;
 
@@ -500,6 +511,7 @@ statement_in_block:var_declaration SEMICOLON
         |for_statement
         |break_expression SEMICOLON
         |continue_expression SEMICOLON
+        |for_in_statement
         ;
 
 statement_in_block_list:statement_in_block_list statement_in_block

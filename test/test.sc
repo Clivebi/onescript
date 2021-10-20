@@ -107,3 +107,24 @@ find_number(100);
 Println(count,count2,count3);
 var type = TypeOf(count);
 Println(type);
+
+#array & map
+var array_item = "string";
+var list = ["value1","value2",100,array_item];
+
+for v in list{
+    Println(v);
+}
+
+assertEqual(list[0],"value1");
+assertEqual(len(list[0]),6);
+assertEqual(len(list),4);
+
+var dic = {"type":"cat","age":2};
+assertEqual(dic["type"],"cat");
+assertEqual(dic["age"],2);
+dic["name"] = "wawa";
+assertEqual(dic["name"],"wawa");
+for k,v in dic{
+    Println(ToString(k)+":"+ToString(v));
+}

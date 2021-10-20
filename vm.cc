@@ -170,6 +170,12 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
         delete newCtx;
         return Value();
     }
+    case Instructions::kForInStatement: {
+        Context* newCtx = new Context(Context::For, ctx);
+        ExecuteForInStatement(ins, newCtx);
+        delete newCtx;
+        return Value();
+    }
     case Instructions::kBREAKStatement: {
         if (!ctx->isInForStatement()) {
             throw RuntimeException("break statement must in the for block");
@@ -288,7 +294,7 @@ Value Executor::CallFunction(Instruction* ins, Context* ctx) {
     if (func == NULL) {
         RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
         if (method == NULL) {
-            throw RuntimeException("call unknown function name:"+ins->Name);
+            throw RuntimeException("call unknown function name:" + ins->Name);
         }
         Instruction* actualParamerList = mScript->GetInstruction(ins->Refs[0]);
         std::vector<Value> actualValues;
@@ -360,6 +366,70 @@ void Executor::ExecuteForStatement(Instruction* ins, Context* ctx) {
     }
 }
 
+void Executor::ExecuteForInStatement(Instruction* ins, Context* ctx) {
+    Instruction* iter_able_obj = mScript->GetInstruction(ins->Refs[0]);
+    Instruction* body = mScript->GetInstruction(ins->Refs[1]);
+    std::list<std::string> key_val = split(ins->Name, ',');
+    std::string key = key_val.front(), val = key_val.back();
+    Value objVal = Execute(iter_able_obj, ctx);
+    switch (objVal.Type) {
+    case ValueType::kString: {
+        for (size_t i = 0; i < objVal.bytes.size(); i++) {
+            if (key.size() > 0) {
+                ctx->SetVarValue(key, Value((long)i));
+            }
+            ctx->SetVarValue(val, Value((long)objVal.bytes[i]));
+            Execute(body, ctx);
+            if (ctx->Flags & Context::FLAGS_BREAK) {
+                break;
+            }
+            if (ctx->Flags & Context::FLAGS_RETURN) {
+                break;
+            }
+            ctx->Flags = 0;
+        }
+    } break;
+    case ValueType::kArray: {
+        for (size_t i = 0; i < objVal._array.size(); i++) {
+            if (key.size() > 0) {
+                ctx->SetVarValue(key, Value((long)i));
+            }
+            ctx->SetVarValue(val, objVal._array[i]);
+            Execute(body, ctx);
+            if (ctx->Flags & Context::FLAGS_BREAK) {
+                break;
+            }
+            if (ctx->Flags & Context::FLAGS_RETURN) {
+                break;
+            }
+            ctx->Flags = 0;
+        }
+    } break;
+    case ValueType::kMap: {
+        std::map<Value, Value>::iterator iter = objVal._map.begin();
+        while (iter != objVal._map.end()) {
+            if (key.size() > 0) {
+                ctx->SetVarValue(key, iter->first);
+            }
+            ctx->SetVarValue(val, iter->second);
+            iter++;
+            Execute(body, ctx);
+            if (ctx->Flags & Context::FLAGS_BREAK) {
+                break;
+            }
+            if (ctx->Flags & Context::FLAGS_RETURN) {
+                break;
+            }
+            ctx->Flags = 0;
+        }
+
+    } break;
+
+    default:
+        break;
+    }
+}
+
 Value Executor::ExecuteCreateMap(Instruction* ins, Context* ctx) {
     Instruction* list = mScript->GetInstruction(ins->Refs[0]);
     std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
@@ -369,8 +439,8 @@ Value Executor::ExecuteCreateMap(Instruction* ins, Context* ctx) {
     while (iter != items.end()) {
         Instruction* key = mScript->GetInstruction((*iter)->Refs[0]);
         Instruction* value = mScript->GetInstruction((*iter)->Refs[1]);
-        Value keyVal = Execute(key,ctx);
-        Value valVal = Execute(value,ctx);
+        Value keyVal = Execute(key, ctx);
+        Value valVal = Execute(value, ctx);
         val._map[keyVal] = valVal;
         iter++;
     }
