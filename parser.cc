@@ -224,6 +224,9 @@ Instruction* Parser::VarSlice(const std::string& name, Instruction* from, Instru
     if (from == NULL) {
         from = NULLObject();
     }
+    if(to == NULL){
+        to = NULLObject();
+    }
     Instruction* obj = mScript->NewInstruction(from, to);
     obj->OpCode = Instructions::kSlice;
     obj->Name = name;

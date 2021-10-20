@@ -2,7 +2,7 @@
 解释和执行分离，这样可以实现解析之后的结果进行序列化和反序列化  
 ## 基本语法
 值类型  
-string，integer，float，array，map
+string,integer,float,array,map,NULL
 变量定义  
 ```
 var name1,name2,name3="1234";
@@ -23,6 +23,13 @@ func do_something(a,b){
     }
 }
 ```
+支持的基本语法
+赋值语句、基本算术运算  
+条件判断（if else if else）  
+循环 for break,continue    
+array,map 迭代 for in break continue  
+函数定义 调用  
+数组切片 a=b[2:] ;a=b[1:4];a=b[:10];  
 语法示例  
 ```
 #for statement test 

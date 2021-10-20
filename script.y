@@ -495,6 +495,10 @@ slice:IDENTIFIER LB key_value COLON key_value RB
         {
                 $$=Parser::current()->VarSlice($1,$3,$5);
         }
+        |IDENTIFIER LB key_value COLON RB
+        {
+                $$=Parser::current()->VarSlice($1,$3,NULL);
+        }
         |IDENTIFIER LB COLON key_value RB
         {
                 $$=Parser::current()->VarSlice($1,NULL,$4);
