@@ -159,3 +159,15 @@ printValueType(100);
 printValueType(3.1415926);
 var nullobj;
 printValueType(nullobj);
+
+var _dirs = ["/bin/","/usr/bin/","/usr/local/bin/"];
+var _files = ["test1","test2","test3"];
+var _full_paths = [];
+var full;
+for v in _dirs{
+    for v2 in _files{
+        _full_paths = append(_full_paths, v+v2);
+    }
+}
+assertEqual(len(_full_paths),len(_dirs)*len(_files));
+Println(_full_paths);

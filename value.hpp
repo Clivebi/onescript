@@ -4,20 +4,98 @@
 
 #include <list>
 #include <map>
+#include <stdio.h>
 #include <string>
 #include <vector>
 
 #include "exception.hpp"
+#include "logger.hpp"
 
 namespace Interpreter {
 
+class CloseableResource {
+public:
+    CloseableResource() : mRef(1) {}
+    virtual ~CloseableResource() {}
+    virtual int AddRef() { return mRef++; }
+    virtual int Release() {
+        if (0 == mRef--) {
+            delete this;
+            return 0;
+        }
+        return mRef;
+    }
+    virtual void Close() {};
+
+protected:
+    int mRef;
+};
+
+class AutoCloseResource {
+private:
+    CloseableResource* mResource;
+
+public:
+    AutoCloseResource(CloseableResource* resource) : mResource(resource) {
+        if (mResource != NULL) mResource->AddRef();
+    }
+    ~AutoCloseResource() {
+        if (mResource != NULL) mResource->Release();
+    }
+
+    AutoCloseResource(const AutoCloseResource& res) {
+        mResource = res.mResource;
+        if (mResource != NULL) {
+            mResource->AddRef();
+        }
+    }
+
+    AutoCloseResource& operator=(const AutoCloseResource& right) {
+        if (mResource != NULL) {
+            mResource->Release();
+            mResource = NULL;
+        }
+        mResource = right.mResource;
+        if (mResource != NULL) {
+            mResource->AddRef();
+        }
+        return *this;
+    }
+
+    CloseableResource* operator->() { return mResource; }
+
+    CloseableResource* Detach() {
+        CloseableResource* ret = mResource;
+        mResource = NULL;
+        return ret;
+    }
+};
+
+class FileResource : public CloseableResource {
+public:
+    FILE* mFile;
+
+public:
+    explicit FileResource(FILE* f) :CloseableResource(), mFile(f) {}
+    ~FileResource() {
+        Close();
+    }
+    void Close() {
+        if (mFile != NULL) {
+            fclose(mFile);
+            mFile = NULL;
+        }
+    }
+};
+
 namespace ValueType {
-const int kNULL = 0;
-const int kInteger = 1;
-const int kFloat = 2;
-const int kString = 3;
-const int kArray = 4;
-const int kMap = 5;
+    const int kNULL = 0;
+    const int kInteger = 1;
+    const int kFloat = 2;
+    const int kString = 3;
+    const int kArray = 4;
+    const int kMap = 5;
+    const int kResource = 6;
 }; // namespace ValueType
 
 class Instruction;
@@ -31,19 +109,56 @@ public:
     std::string bytes;
     std::vector<Value> _array;
     std::map<Value, Value> _map;
-    Value(bool val) : Type(ValueType::kInteger) {
+    AutoCloseResource resource;
+    Value(bool val) : Type(ValueType::kInteger),resource(NULL) {
         Integer = 0;
         if (val) {
             Integer = 1;
         }
     }
-    Value() : Type(ValueType::kNULL), bytes(), Integer(0) {}
-    Value(const char* val) : Type(ValueType::kString), bytes(val), Integer(0) {}
-    Value(const std::string& val) : Type(ValueType::kString), bytes(val), Integer(0) {}
-    Value(const long& val) : Type(ValueType::kInteger), bytes(), Integer(val) {}
-    Value(const double& val) : Type(ValueType::kFloat), bytes(), Float(val) {}
-    Value(std::vector<Value>& val) : Type(ValueType::kArray), _array(val), Integer(0) {}
-    Value(std::map<Value, Value>& val) : Type(ValueType::kMap), _map(val), Integer(0) {}
+    static Value make_map() {
+        Value ret = Value();
+        ret.Type = ValueType::kMap;
+        ret._map.clear();
+        return ret;
+    }
+    static Value make_array() {
+        Value ret = Value();
+        ret.Type = ValueType::kArray;
+        ret._array.clear();
+        return ret;
+    }
+    Value(const Value& right):resource(NULL) {
+        Type = right.Type;
+        Integer = right.Integer;
+        bytes = right.bytes;
+        _map = right._map;
+        _array = right._array;
+        resource = right.resource;
+    }
+    Value& operator=(const Value& right) {
+        Type = right.Type;
+        Integer = right.Integer;
+        bytes = right.bytes;
+        _map = right._map;
+        _array = right._array;
+        resource = right.resource;
+        return *this;
+    }
+    Value() : Type(ValueType::kNULL), bytes(), Integer(0), _map(), _array(),resource(NULL) {}
+    Value(const char* val) : Type(ValueType::kString), bytes(val), Integer(0),resource(NULL) {}
+    Value(const std::string& val) : Type(ValueType::kString), bytes(val), Integer(0),resource(NULL) {}
+    Value(const long& val) : Type(ValueType::kInteger), bytes(), Integer(val),resource(NULL) {}
+    Value(const double& val) : Type(ValueType::kFloat), bytes(), Float(val),resource(NULL) {}
+    Value(const std::vector<Value>& val)
+            : Type(ValueType::kArray), bytes(), Integer(0), _array(val), _map(),resource(NULL) {}
+    Value(const std::map<Value, Value>& val)
+            : Type(ValueType::kArray), bytes(), Integer(0), _array(), _map(val),resource(NULL) {}
+    
+    Value(const AutoCloseResource& res):Type(ValueType::kResource),resource(res),bytes(),Integer(0),
+    _array(),_map(){}
+
+
 
     Value operator+(Value& right) {
         if (this->Type == ValueType::kString && right.Type == ValueType::kString) {
@@ -209,7 +324,7 @@ public:
         for (size_t i = from; i < to; i++) {
             result.push_back(_array[i]);
         }
-        return result;
+        return Value(result);
     }
 
     Value operator[](Value key) {
@@ -379,11 +494,10 @@ private:
 
 inline std::list<std::string> split(const std::string& text, char split_char) {
     std::list<std::string> result;
-    std::string part="";
+    std::string part = "";
     std::string::const_iterator iter = text.begin();
-    while (iter != text.end())
-    {
-        if(*iter == split_char){
+    while (iter != text.end()) {
+        if (*iter == split_char) {
             result.push_back(part);
             part = "";
             iter++;

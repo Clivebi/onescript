@@ -49,4 +49,5 @@ add_executable(Interpreter
     script.lex.cpp 
     vm.cc
     main.cc 
+    vmcontext.cc 
 )

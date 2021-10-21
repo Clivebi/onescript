@@ -475,11 +475,19 @@ array_value:LB value_list RB
         {
                 $$=Parser::current()->CreateArray($2);
         }
+        |LB RB
+        {
+                $$=Parser::current()->CreateArray(NULL);
+        }
         ;
 
 map_value: LC map_item_list RC
         {
                 $$=Parser::current()->CreateMap($2);
+        }
+        | LC RC
+        {
+                $$=Parser::current()->CreateMap(NULL);
         }
         ;
 

@@ -32,7 +32,7 @@ const int kCreateMap = CODE_BASE + 16;
 const int kCreateArray = CODE_BASE + 17;
 const int kSlice = CODE_BASE + 18;
 const int kForInStatement = CODE_BASE + 19;
-const int kSwitchCaseStatement = CODE_BASE+20;
+const int kSwitchCaseStatement = CODE_BASE + 20;
 
 const int kArithmeticOP = 0x100;
 const int kADD = kArithmeticOP + 1;
@@ -75,6 +75,9 @@ public:
         Refs.push_back(one->key);
         Refs.push_back(tow->key);
         Refs.push_back(three->key);
+    }
+    bool IsNULL(){
+        return OpCode == Instructions::kNop;
     }
     std::string ToString() {
         if (OpCode >= Instructions::kADD && OpCode <= Instructions::kMAXArithmeticOP) {
@@ -124,6 +127,8 @@ public:
             return "Slice Array";
         case Instructions::kForInStatement:
             return "for in statement";
+        case Instructions::kSwitchCaseStatement:
+            return "switch -- case statement";
 
         default:
             return "Unknown Op";

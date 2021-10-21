@@ -2,37 +2,54 @@
 
 #include "vm.hpp"
 
-Interpreter::Value Println(std::vector<Interpreter::Value>& values) {
+using namespace Interpreter;
+
+Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     std::string result;
-    for (std::vector<Interpreter::Value>::iterator iter = values.begin(); iter != values.end();
-         iter++) {
+    for (std::vector<Value>::iterator iter = values.begin(); iter != values.end(); iter++) {
         result += iter->ToString();
         result += " ";
     }
     std::cout << result << "\n" << std::endl;
-    return Interpreter::Value();
+    return Value();
 }
 
-Interpreter::Value Len(std::vector<Interpreter::Value>& values) {
-    Interpreter::Value& arg = values.front();
+Value Len(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    Value& arg = values.front();
     assert(values.size() == 1);
-    return Interpreter::Value((long)arg.length());
+    return Value((long)arg.length());
 }
 
-Interpreter::Value TypeOf(std::vector<Interpreter::Value>& values) {
-    Interpreter::Value& arg = values.front();
+Value TypeOf(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    Value& arg = values.front();
     assert(values.size() == 1);
-    return Interpreter::Value(arg.TypeName());
+    return Value(arg.TypeName());
 }
 
-Interpreter::Value ToString(std::vector<Interpreter::Value>& values) {
-    Interpreter::Value& arg = values.front();
+Value ToString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    Value& arg = values.front();
     assert(values.size() == 1);
-    return Interpreter::Value(arg.ToString());
+    return Value(arg.ToString());
 }
 
-int g_builtinMethod_size = 4;
+Value Append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    Value to = values.front();
+    if (to.Type != ValueType::kArray) {
+        throw RuntimeException("first append value must an array");
+    }
+    std::vector<Value>::iterator iter = values.begin();
+    iter++;
+    while (iter != values.end()) {
+        to._array.push_back(*iter);
+        iter++;
+    }
+    return to;
+}
 
-Interpreter::BuiltinMethod g_builtinMethod[4] = {
-        {"Println", Println}, {"TypeOf", TypeOf}, {"len", Len}
-        ,"ToString",ToString};
+int g_builtinMethod_size = 5;
+
+BuiltinMethod g_builtinMethod[5] = {{"Println", Println},
+                                    {"TypeOf", TypeOf},
+                                    {"len", Len},
+                                    {"ToString", ToString},
+                                    {"append", Append}};

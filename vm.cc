@@ -1,31 +1,11 @@
 #include "vm.hpp"
 
 #include "logger.hpp"
-#define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
 
 extern int g_builtinMethod_size;
 extern Interpreter::BuiltinMethod g_builtinMethod[];
 
 namespace Interpreter {
-BuiltinValue g_builtinVar[] = {
-        {"false", Value(0l)},
-        {"true", Value(1l)},
-};
-
-bool Context::CheckVarName(const std::string& name) {
-    for (int i = 0; i < COUNT_OF(g_builtinVar); i++) {
-        if (g_builtinVar[i].name == name) {
-            return false;
-        }
-    }
-    return true;
-}
-
-void Context::builtinVar() {
-    for (int i = 0; i < COUNT_OF(g_builtinVar); i++) {
-        mVars[g_builtinVar[i].name] = g_builtinVar[i].val;
-    }
-}
 
 Executor::Executor() {
     RegisgerFunction(g_builtinMethod, g_builtinMethod_size);
@@ -33,7 +13,7 @@ Executor::Executor() {
 
 void Executor::Execute(Script* script) {
     mScript = script;
-    Context* context = new Context(Context::File, NULL);
+    VMContext* context = new VMContext(VMContext::File, NULL);
     Execute(mScript->EntryPoint, context);
 }
 
@@ -51,16 +31,10 @@ RUNTIME_FUNCTION Executor::GetBuiltinMethod(const std::string& name) {
     return iter->second;
 }
 
-Value Executor::Execute(Instruction* ins, Context* ctx) {
-    if (ctx->Flags & Context::FLAGS_RETURN) {
-        assert(ctx->isInFunctionBody());
-        LOG("被return跳过执行:" + ins->ToString());
-        return ctx->ReturnValue;
-    }
-    if (ctx->Flags & (Context::FLAGS_BREAK | Context::FLAGS_CONTINUE)) {
-        assert(ctx->isInForStatement() || ctx->isInSwitchStatement());
-        LOG("被break/continue跳过执行:" + ins->ToString());
-        return Value();
+Value Executor::Execute(Instruction* ins, VMContext* ctx) {
+    if (ctx->IsExecutedInterupt()) {
+        LOG("Instruction execute interupted :" + ins->ToString());
+        return ctx->GetReturnValue();
     }
     if (ins->OpCode >= Instructions::kADD && ins->OpCode <= Instructions::kMAXArithmeticOP) {
         return ExecuteArithmeticOperation(ins, ctx);
@@ -89,7 +63,8 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
     case Instructions::kADDWrite: {
         Value valOld = ctx->GetVarValue(ins->Name);
         Value val = Execute(mScript->GetInstruction(ins->Refs.front()), ctx);
-        ctx->SetVarValue(ins->Name, valOld + val);
+        Value newVal = valOld + val;
+        ctx->SetVarValue(ins->Name, newVal);
         return Value();
     }
     case Instructions::kSUBWrite: {
@@ -156,44 +131,34 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
     }
 
     case Instructions::kRETURNStatement: {
-        if (!ctx->isReturnAvaliable()) {
-            throw RuntimeException("return statement must in the function body");
-        }
-        ctx->ReturnValue = Execute(mScript->GetInstruction(ins->Refs[0]), ctx);
-        ctx->Flags |= Context::FLAGS_RETURN;
+        ctx->ReturnExecuted(Execute(mScript->GetInstruction(ins->Refs[0]), ctx));
         return Value();
     }
 
     case Instructions::kFORStatement: {
-        Context* newCtx = new Context(Context::For, ctx);
+        VMContext* newCtx = new VMContext(VMContext::For, ctx);
         ExecuteForStatement(ins, newCtx);
         delete newCtx;
         return Value();
     }
     case Instructions::kForInStatement: {
-        Context* newCtx = new Context(Context::For, ctx);
+        VMContext* newCtx = new VMContext(VMContext::For, ctx);
         ExecuteForInStatement(ins, newCtx);
         delete newCtx;
         return Value();
     }
     case Instructions::kSwitchCaseStatement: {
-        Context* newCtx = new Context(Context::Switch, ctx);
+        VMContext* newCtx = new VMContext(VMContext::Switch, ctx);
         ExecuteSwitchStatement(ins, newCtx);
         delete newCtx;
         return Value();
     }
     case Instructions::kBREAKStatement: {
-        if (!ctx->isBreakAvaliable()) {
-            throw RuntimeException("break statement must in the for block or switch block");
-        }
-        ctx->Flags |= Context::FLAGS_BREAK;
+        ctx->BreakExecuted();
         return Value();
     }
     case Instructions::kCONTINUEStatement: {
-        if (!ctx->isContinueAvaliable()) {
-            throw RuntimeException("continue statement must in the for block");
-        }
-        ctx->Flags |= Context::FLAGS_CONTINUE;
+        ctx->ContinueExecuted();
         return Value();
     }
     case Instructions::kCreateMap:
@@ -212,13 +177,13 @@ Value Executor::Execute(Instruction* ins, Context* ctx) {
     }
 }
 
-void Executor::ExecuteIfStatement(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteIfStatement(Instruction* ins, VMContext* ctx) {
     Instruction* one = mScript->GetInstruction(ins->Refs[0]);
     Instruction* tow = mScript->GetInstruction(ins->Refs[1]);
     Instruction* three = mScript->GetInstruction(ins->Refs[2]);
     Value val = Execute(one, ctx);
     if (val.ToBoolen()) {
-        return;
+        return Value();
     }
     if (tow->OpCode != Instructions::kNop) {
         std::vector<Instruction*> branchs = mScript->GetInstructions(tow->Refs);
@@ -228,22 +193,23 @@ void Executor::ExecuteIfStatement(Instruction* ins, Context* ctx) {
             if (val.ToBoolen()) {
                 break;
             }
-            if (ctx->Flags & Context::FLAGS_RETURN) {
-                return;
+            if (ctx->IsExecutedInterupt()) {
+                return Value();
             }
             iter++;
         }
     }
     if (val.ToBoolen()) {
-        return;
+        return Value();
     }
     if (three->OpCode == Instructions::kNop) {
-        return;
+        return Value();
     }
     Execute(three, ctx);
+    return Value();
 }
 
-Value Executor::ExecuteArithmeticOperation(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteArithmeticOperation(Instruction* ins, VMContext* ctx) {
     Instruction* first = mScript->GetInstruction(ins->Refs[0]);
     Value firstVal = Execute(first, ctx);
     if (ins->OpCode == Instructions::kNOT) {
@@ -281,22 +247,20 @@ Value Executor::ExecuteArithmeticOperation(Instruction* ins, Context* ctx) {
     }
 }
 
-void Executor::ExecuteList(std::vector<Instruction*> insList, Context* ctx) {
+Value Executor::ExecuteList(std::vector<Instruction*> insList, VMContext* ctx) {
     std::vector<Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
         Execute(*iter, ctx);
-        if (ctx->Flags & Context::FLAGS_RETURN) {
-            break;
-        }
-        if (ctx->isInForStatement() && ctx->Flags & Context::FLAGS_CONTINUE) {
+        if (ctx->IsExecutedInterupt()) {
             break;
         }
         iter++;
     }
+    return Value();
 }
 
-Value Executor::CallFunction(Instruction* ins, Context* ctx) {
-    Context* newCtx = new Context(Context::Function, ctx);
+Value Executor::CallFunction(Instruction* ins, VMContext* ctx) {
+    VMContext* newCtx = new VMContext(VMContext::Function, ctx);
     Instruction* func = ctx->GetFunction(ins->Name);
     if (func == NULL) {
         RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
@@ -312,7 +276,9 @@ Value Executor::CallFunction(Instruction* ins, Context* ctx) {
             actualValues.push_back(Execute(*iter, ctx));
             iter++;
         }
-        return method(actualValues);
+        Value val = method(actualValues, newCtx, this);
+        delete newCtx;
+        return val;
     }
     Instruction* formalParamersList = mScript->GetInstruction(func->Refs[0]);
     Instruction* body = mScript->GetInstruction(func->Refs[1]);
@@ -339,41 +305,60 @@ Value Executor::CallFunction(Instruction* ins, Context* ctx) {
         iter++;
     }
     Execute(body, newCtx);
-    Value val = newCtx->ReturnValue;
+    Value val = newCtx->GetReturnValue();
+    delete newCtx;
+    return val;
+}
+Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& args,
+                                   VMContext* ctx) {
+    VMContext* newCtx = new VMContext(VMContext::Function, ctx);
+    Instruction* func = ctx->GetFunction(name);
+    Instruction* formalParamersList = mScript->GetInstruction(func->Refs[0]);
+    Instruction* body = mScript->GetInstruction(func->Refs[1]);
+
+    if (args.size() != formalParamersList->Refs.size()) {
+        throw RuntimeException("actual parameters count not equal formal paramers");
+    }
+    std::vector<Instruction*> formalParamers = mScript->GetInstructions(formalParamersList->Refs);
+    std::vector<Instruction*>::iterator iter = formalParamers.begin();
+    int i = 0;
+    while (iter != formalParamers.end()) {
+        Execute(*iter, ctx);
+        newCtx->SetVarValue((*iter)->Name, args[i]);
+        i++;
+        iter++;
+    }
+    Execute(body, newCtx);
+    Value val = newCtx->GetReturnValue();
     delete newCtx;
     return val;
 }
 
-void Executor::ExecuteForStatement(Instruction* ins, Context* ctx) {
-    std::vector<Instruction*> insList = mScript->GetInstructions(ins->Refs);
-    if (insList[0]->OpCode != Instructions::kNop) {
-        Execute(insList[0], ctx);
-    }
-    //Instruction* CreateForStatement(Instruction*init,
-    //Instruction* condition,Instruction*op,Instruction*body);
+Value Executor::ExecuteForStatement(Instruction* ins, VMContext* ctx) {
+    Instruction* init = mScript->GetInstruction(ins->Refs[0]);
+    Instruction* condition = mScript->GetInstruction(ins->Refs[1]);
+    Instruction* after = mScript->GetInstruction(ins->Refs[2]);
+    Instruction* block = mScript->GetInstruction(ins->Refs[3]);
+    Execute(init, ctx);
     while (true) {
         Value val = Value(1l);
-        if (insList[1]->OpCode != Instructions::kNop) {
-            val = Execute(insList[1], ctx);
+        if (!condition->IsNULL()) {
+            val = Execute(condition, ctx);
         }
         if (!val.ToBoolen()) {
             break;
         }
-        Execute(insList[3], ctx);
-        if (ctx->Flags & Context::FLAGS_BREAK) {
+        Execute(block, ctx);
+        ctx->CleanContinueFlag();
+        if (ctx->IsExecutedInterupt()) {
             break;
         }
-        if (ctx->Flags & Context::FLAGS_RETURN) {
-            break;
-        }
-        ctx->Flags = 0;
-        if (insList[2]->OpCode != Instructions::kNop) {
-            Execute(insList[2], ctx);
-        }
+        Execute(after, ctx);
     }
+    return Value();
 }
 
-void Executor::ExecuteForInStatement(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteForInStatement(Instruction* ins, VMContext* ctx) {
     Instruction* iter_able_obj = mScript->GetInstruction(ins->Refs[0]);
     Instruction* body = mScript->GetInstruction(ins->Refs[1]);
     std::list<std::string> key_val = split(ins->Name, ',');
@@ -387,13 +372,10 @@ void Executor::ExecuteForInStatement(Instruction* ins, Context* ctx) {
             }
             ctx->SetVarValue(val, Value((long)objVal.bytes[i]));
             Execute(body, ctx);
-            if (ctx->Flags & Context::FLAGS_BREAK) {
+            ctx->CleanContinueFlag();
+            if (ctx->IsExecutedInterupt()) {
                 break;
             }
-            if (ctx->Flags & Context::FLAGS_RETURN) {
-                break;
-            }
-            ctx->Flags = 0;
         }
     } break;
     case ValueType::kArray: {
@@ -403,13 +385,10 @@ void Executor::ExecuteForInStatement(Instruction* ins, Context* ctx) {
             }
             ctx->SetVarValue(val, objVal._array[i]);
             Execute(body, ctx);
-            if (ctx->Flags & Context::FLAGS_BREAK) {
+            ctx->CleanContinueFlag();
+            if (ctx->IsExecutedInterupt()) {
                 break;
             }
-            if (ctx->Flags & Context::FLAGS_RETURN) {
-                break;
-            }
-            ctx->Flags = 0;
         }
     } break;
     case ValueType::kMap: {
@@ -421,13 +400,10 @@ void Executor::ExecuteForInStatement(Instruction* ins, Context* ctx) {
             ctx->SetVarValue(val, iter->second);
             iter++;
             Execute(body, ctx);
-            if (ctx->Flags & Context::FLAGS_BREAK) {
+            ctx->CleanContinueFlag();
+            if (ctx->IsExecutedInterupt()) {
                 break;
             }
-            if (ctx->Flags & Context::FLAGS_RETURN) {
-                break;
-            }
-            ctx->Flags = 0;
         }
 
     } break;
@@ -435,13 +411,16 @@ void Executor::ExecuteForInStatement(Instruction* ins, Context* ctx) {
     default:
         break;
     }
+    return Value();
 }
 
-Value Executor::ExecuteCreateMap(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteCreateMap(Instruction* ins, VMContext* ctx) {
     Instruction* list = mScript->GetInstruction(ins->Refs[0]);
+    if (list->OpCode == Instructions::kNop) {
+        return Value::make_map();
+    }
     std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
-    std::map<Value, Value> map_value;
-    Value val = Value(map_value);
+    Value val = Value::make_map();
     std::vector<Instruction*>::iterator iter = items.begin();
     while (iter != items.end()) {
         Instruction* key = mScript->GetInstruction((*iter)->Refs[0]);
@@ -453,11 +432,13 @@ Value Executor::ExecuteCreateMap(Instruction* ins, Context* ctx) {
     }
     return val;
 }
-Value Executor::ExecuteCreateArray(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteCreateArray(Instruction* ins, VMContext* ctx) {
     Instruction* list = mScript->GetInstruction(ins->Refs[0]);
+    if (list->OpCode == Instructions::kNop) {
+        return Value::make_array();
+    }
     std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
-    std::vector<Value> array_value;
-    Value val = Value(array_value);
+    Value val = Value::make_array();
     std::vector<Instruction*>::iterator iter = items.begin();
     while (iter != items.end()) {
         val._array.push_back(Execute((*iter), ctx));
@@ -465,7 +446,7 @@ Value Executor::ExecuteCreateArray(Instruction* ins, Context* ctx) {
     }
     return val;
 }
-Value Executor::ExecuteSlice(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteSlice(Instruction* ins, VMContext* ctx) {
     Instruction* from = mScript->GetInstruction(ins->Refs[0]);
     Instruction* to = mScript->GetInstruction(ins->Refs[1]);
     Value fromVal = Execute(from, ctx);
@@ -473,7 +454,7 @@ Value Executor::ExecuteSlice(Instruction* ins, Context* ctx) {
     Value opObj = ctx->GetVarValue(ins->Name);
     return opObj.sub_slice(fromVal, toVal);
 }
-Value Executor::ExecuteArrayReadWrite(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteArrayReadWrite(Instruction* ins, VMContext* ctx) {
     Instruction* where = mScript->GetInstruction(ins->Refs[0]);
     Value index = Execute(where, ctx);
     Value opObj = ctx->GetVarValue(ins->Name);
@@ -487,7 +468,7 @@ Value Executor::ExecuteArrayReadWrite(Instruction* ins, Context* ctx) {
     return opObj;
 }
 
-std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList, Context* ctx) {
+std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList, VMContext* ctx) {
     std::vector<Value> result;
     std::vector<Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
@@ -497,7 +478,7 @@ std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insLis
     return result;
 }
 
-Value Executor::ExecuteSwitchStatement(Instruction* ins, Context* ctx) {
+Value Executor::ExecuteSwitchStatement(Instruction* ins, VMContext* ctx) {
     Instruction* value = mScript->GetInstruction(ins->Refs[0]);
     Instruction* cases = mScript->GetInstruction(ins->Refs[1]);
     Instruction* defaultBranch = mScript->GetInstruction(ins->Refs[2]);
@@ -525,7 +506,7 @@ Value Executor::ExecuteSwitchStatement(Instruction* ins, Context* ctx) {
         }
         casehit = true;
         Execute(actions, ctx);
-        if (ctx->Flags & Context::FLAGS_BREAK) {
+        if (ctx->IsExecutedInterupt()) {
             break;
         }
         iter++;

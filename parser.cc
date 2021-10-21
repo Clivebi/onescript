@@ -186,6 +186,9 @@ Instruction* Parser::CreateMapItem(Instruction* key, Instruction* value) {
     return obj;
 }
 Instruction* Parser::CreateMap(Instruction* list) {
+    if (list == NULL) {
+        list = NULLObject();
+    }
     Instruction* obj = mScript->NewInstruction(list);
     obj->OpCode = Instructions::kCreateMap;
     if (mLogInstruction) {
@@ -194,6 +197,9 @@ Instruction* Parser::CreateMap(Instruction* list) {
     return obj;
 }
 Instruction* Parser::CreateArray(Instruction* list) {
+    if (list == NULL) {
+        list = NULLObject();
+    }
     Instruction* obj = mScript->NewInstruction(list);
     obj->OpCode = Instructions::kCreateArray;
     if (mLogInstruction) {
