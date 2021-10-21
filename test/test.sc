@@ -1,7 +1,3 @@
-#for statement test 
-#
-#
-
 var _test_pass = true;
 
 func assertEqual(a,b){

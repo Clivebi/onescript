@@ -1,8 +1,18 @@
-## 基于bison和flex实现的脚本解释器
-解释和执行分离，这样可以实现解析之后的结果进行序列化和反序列化  
+## 项目说明
+基于flex和bison实现的一个基本的脚本解释器，有如下一些特点：  
+1. 支持变量作用域和生命周期自动化管理。  
+2. 支持资源的生命周期管理，例如文件句柄生命周期。    
+3. 解析和执行分开，解析的中间结果可以方便序列化和反序列化。  
 ## 基本语法
 值类型  
-string,integer,float,array,map,NULL  
+string - 字符串  
+integer- 整数  
+float  - 双精度浮点  
+array  - 数组（数组可存储所有值类型）  
+map    - 字典  
+NULL   - NULL值  
+Resource - 系统资源，例如文件句柄  
+
 变量定义  
 ```
 var name1,name2,name3="1234";
@@ -13,7 +23,8 @@ var name1,name2,name3="1234";
 name4 = 128;这种情况，只有上下文中中不存在name4变量的时候才会创建变量，如果存在就是赋值语句  
 ``` 
 变量作用域  
-变量有3种作用域 文件作用域 函数作用域 局部作用域（for，for in语句）
+变量有3种作用域 文件作用域 函数作用域 局部作用域（for，for-in switch 语句） 
+离开作用域，变量自动销毁  
 ```
 var name5; #文件作用域
 func do_something(a,b){
@@ -23,20 +34,19 @@ func do_something(a,b){
     }
 }
 ```
-支持的基本语法
-赋值语句、基本算术运算  
-条件判断（if else if else）  
-循环 for break,continue    
-switch-case-default 语法  
-array,map 迭代 for in break continue  
-函数定义 调用  
-数组切片 a=b[2:] ;a=b[1:4];a=b[:10];  
-语法示例  
-```
-#for statement test 
-#
-#
+语法  
+支持大部分现代脚本的控制结构  
+赋值 = += -= *= /=   
+基本算术运算 + - * / %(整数求余)   
+条件判断 if else 语法  
+循环语法 for      
+switch语法  
+数组和字典迭代 for ... in ...  
+数组切片  a=b[2:] ;a=b[1:4];a=b[:10];  
+支持自定义函数、内置函数  
 
+## 语法示例  
+```
 var _test_pass = true;
 
 func assertEqual(a,b){
@@ -194,6 +204,18 @@ printValueType(100);
 printValueType(3.1415926);
 var nullobj;
 printValueType(nullobj);
+
+var _dirs = ["/bin/","/usr/bin/","/usr/local/bin/"];
+var _files = ["test1","test2","test3"];
+var _full_paths = [];
+var full;
+for v in _dirs{
+    for v2 in _files{
+        _full_paths = append(_full_paths, v+v2);
+    }
+}
+assertEqual(len(_full_paths),len(_dirs)*len(_files));
+Println(_full_paths);
 ```
 ## 参考
 https://github.com/stdpain/compiler-interpreter
