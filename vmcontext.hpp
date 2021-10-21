@@ -8,7 +8,7 @@
 
 namespace Interpreter {
 
-class VMContext {
+class VMContext:public RefBase {
 public:
     enum Type {
         File,
@@ -31,9 +31,11 @@ protected:
     int mFlags;
     Value mReturnValue;
     VMContext();
-
+    VMContext(const VMContext&);
+    VMContext& operator = (const VMContext&);
 public:
     VMContext(Type type, VMContext* Parent);
+    ~VMContext();
 
     bool IsExecutedInterupt() { return (mFlags & 0xFF); }
     void CleanContinueFlag() { mFlags &= 0xFE; }

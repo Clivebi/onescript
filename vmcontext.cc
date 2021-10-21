@@ -22,6 +22,8 @@ VMContext::VMContext(Type type, VMContext* Parent) : mFlags(0) {
     }
     LoadBuiltinVar();
 }
+VMContext::~VMContext() {
+}
 
 bool VMContext::IsBuiltinVarName(const std::string& name) {
     for (int i = 0; i < COUNT_OF(g_builtinVar); i++) {

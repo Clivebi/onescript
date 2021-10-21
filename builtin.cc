@@ -4,7 +4,7 @@
 
 using namespace Interpreter;
 
-Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value Println(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
     std::string result;
     for (std::vector<Value>::iterator iter = values.begin(); iter != values.end(); iter++) {
         result += iter->ToString();
@@ -14,25 +14,25 @@ Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     return Value();
 }
 
-Value Len(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value Len(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value((long)arg.length());
 }
 
-Value TypeOf(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value TypeOf(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value(arg.TypeName());
 }
 
-Value ToString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value ToString(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value(arg.ToString());
 }
 
-Value Append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value Append(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
     Value to = values.front();
     if (to.Type != ValueType::kArray) {
         throw RuntimeException("first append value must an array");

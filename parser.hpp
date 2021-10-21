@@ -9,14 +9,17 @@
 namespace Interpreter {
 class Parser {
 protected:
-    Script* mScript;
+    scoped_ptr<Script> mScript;
 
-    Parser() {}
+    Parser() : mScript(NULL) {}
 
     std::list<std::string*> mStringHolder;
     std::string mScanningString;
 
     bool mLogInstruction;
+    ~Parser() {
+        Finish();
+    }
 
 public:
     static Parser* current() {
@@ -25,8 +28,8 @@ public:
     }
 
     void Start() { mScript = new Script(); }
-    Script* Finish() {
-        Script* ret = mScript;
+    scoped_ptr<Script> Finish() {
+        scoped_ptr<Script> ret = mScript;
         mScript = NULL;
         mScanningString.clear();
         std::list<std::string*>::iterator iter = mStringHolder.begin();
@@ -100,7 +103,8 @@ public:
     Instruction* VarSlice(const std::string& name, Instruction* from, Instruction* to);
     Instruction* CreateForInStatement(const std::string& key, const std::string& val,
                                       Instruction* obj, Instruction* body);
-    Instruction* CreateSwitchCaseStatement(Instruction*value,Instruction*cases,Instruction*defbranch);
+    Instruction* CreateSwitchCaseStatement(Instruction* value, Instruction* cases,
+                                           Instruction* defbranch);
     //parser ending
     void SetEntryPoint(Instruction* value) { mScript->EntryPoint = value; }
 };

@@ -22,8 +22,11 @@ int main(int argc, char*argv[]) {
         exit(1);
     }
 
-    Script* st = Parser::current()->Finish();
+    scoped_ptr<Script> st = Parser::current()->Finish();
     Executor exe;
-    exe.Execute(st);
+    std::string err = "";
+    if(!exe.Execute(st,err)){
+        fprintf(stderr,"execute error:%s\n",err.c_str());
+    }
     return 0;
 }

@@ -136,7 +136,7 @@ public:
     }
 };
 
-class Script {
+class Script: public RefBase {
 public:
     Instruction* EntryPoint;
 

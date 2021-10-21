@@ -1,10 +1,10 @@
 
 #pragma once
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <list>
 #include <map>
-#include <stdio.h>
 #include <string>
 #include <vector>
 
@@ -13,73 +13,78 @@
 
 namespace Interpreter {
 
-class CloseableResource {
+class RefBase {
+private:
+    int mRef;
+
 public:
-    CloseableResource() : mRef(1) {}
-    virtual ~CloseableResource() {}
+    RefBase() : mRef(0) {}
+    virtual ~RefBase() {}
     virtual int AddRef() { return mRef++; }
     virtual int Release() {
-        if (0 == mRef--) {
+        if (0 == --mRef) {
             delete this;
             return 0;
         }
         return mRef;
     }
-    virtual void Close() {};
-
-protected:
-    int mRef;
 };
 
-class AutoCloseResource {
+class Resource : public RefBase {
+public:
+    virtual ~Resource() { Close(); }
+    virtual void Close() {};
+};
+
+template <class T>
+class scoped_ptr {
 private:
-    CloseableResource* mResource;
+    T* mPtr;
 
 public:
-    AutoCloseResource(CloseableResource* resource) : mResource(resource) {
-        if (mResource != NULL) mResource->AddRef();
+    scoped_ptr(T* ptr) : mPtr(ptr) {
+        if (mPtr != NULL) mPtr->AddRef();
     }
-    ~AutoCloseResource() {
-        if (mResource != NULL) mResource->Release();
+    ~scoped_ptr() {
+        if (mPtr != NULL) mPtr->Release();
     }
 
-    AutoCloseResource(const AutoCloseResource& res) {
-        mResource = res.mResource;
-        if (mResource != NULL) {
-            mResource->AddRef();
+    scoped_ptr(const scoped_ptr& res) {
+        mPtr = res.mPtr;
+        if (mPtr != NULL) {
+            mPtr->AddRef();
         }
     }
 
-    AutoCloseResource& operator=(const AutoCloseResource& right) {
-        if (mResource != NULL) {
-            mResource->Release();
-            mResource = NULL;
+    scoped_ptr& operator=(const scoped_ptr& right) {
+        if (mPtr != NULL) {
+            mPtr->Release();
+            mPtr = NULL;
         }
-        mResource = right.mResource;
-        if (mResource != NULL) {
-            mResource->AddRef();
+        mPtr = right.mPtr;
+        if (mPtr != NULL) {
+            mPtr->AddRef();
         }
         return *this;
     }
+    T* get() { return mPtr; }
 
-    CloseableResource* operator->() { return mResource; }
+    T* operator->() { return mPtr; }
 
-    CloseableResource* Detach() {
-        CloseableResource* ret = mResource;
-        mResource = NULL;
+    T* Detach() {
+        Resource* ret = mPtr;
+        mPtr = NULL;
         return ret;
     }
 };
 
-class FileResource : public CloseableResource {
+class FileResource : public Resource {
 public:
     FILE* mFile;
 
 public:
-    explicit FileResource(FILE* f) :CloseableResource(), mFile(f) {}
-    ~FileResource() {
-        Close();
-    }
+    explicit FileResource(FILE* f) : Resource(), mFile(f) {}
+    ~FileResource() { Close(); }
     void Close() {
         if (mFile != NULL) {
             fclose(mFile);
@@ -88,14 +93,16 @@ public:
     }
 };
 
+typedef scoped_ptr<Resource> AutoCloseResource;
+
 namespace ValueType {
-    const int kNULL = 0;
-    const int kInteger = 1;
-    const int kFloat = 2;
-    const int kString = 3;
-    const int kArray = 4;
-    const int kMap = 5;
-    const int kResource = 6;
+const int kNULL = 0;
+const int kInteger = 1;
+const int kFloat = 2;
+const int kString = 3;
+const int kArray = 4;
+const int kMap = 5;
+const int kResource = 6;
 }; // namespace ValueType
 
 class Instruction;
@@ -110,7 +117,7 @@ public:
     std::vector<Value> _array;
     std::map<Value, Value> _map;
     AutoCloseResource resource;
-    Value(bool val) : Type(ValueType::kInteger),resource(NULL) {
+    Value(bool val) : Type(ValueType::kInteger), resource(NULL) {
         Integer = 0;
         if (val) {
             Integer = 1;
@@ -128,7 +135,7 @@ public:
         ret._array.clear();
         return ret;
     }
-    Value(const Value& right):resource(NULL) {
+    Value(const Value& right) : resource(NULL) {
         Type = right.Type;
         Integer = right.Integer;
         bytes = right.bytes;
@@ -145,20 +152,19 @@ public:
         resource = right.resource;
         return *this;
     }
-    Value() : Type(ValueType::kNULL), bytes(), Integer(0), _map(), _array(),resource(NULL) {}
-    Value(const char* val) : Type(ValueType::kString), bytes(val), Integer(0),resource(NULL) {}
-    Value(const std::string& val) : Type(ValueType::kString), bytes(val), Integer(0),resource(NULL) {}
-    Value(const long& val) : Type(ValueType::kInteger), bytes(), Integer(val),resource(NULL) {}
-    Value(const double& val) : Type(ValueType::kFloat), bytes(), Float(val),resource(NULL) {}
+    Value() : Type(ValueType::kNULL), bytes(), Integer(0), _map(), _array(), resource(NULL) {}
+    Value(const char* val) : Type(ValueType::kString), bytes(val), Integer(0), resource(NULL) {}
+    Value(const std::string& val)
+            : Type(ValueType::kString), bytes(val), Integer(0), resource(NULL) {}
+    Value(const long& val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(const double& val) : Type(ValueType::kFloat), bytes(), Float(val), resource(NULL) {}
     Value(const std::vector<Value>& val)
-            : Type(ValueType::kArray), bytes(), Integer(0), _array(val), _map(),resource(NULL) {}
+            : Type(ValueType::kArray), bytes(), Integer(0), _array(val), _map(), resource(NULL) {}
     Value(const std::map<Value, Value>& val)
-            : Type(ValueType::kArray), bytes(), Integer(0), _array(), _map(val),resource(NULL) {}
-    
-    Value(const AutoCloseResource& res):Type(ValueType::kResource),resource(res),bytes(),Integer(0),
-    _array(),_map(){}
+            : Type(ValueType::kArray), bytes(), Integer(0), _array(), _map(val), resource(NULL) {}
 
-
+    Value(const AutoCloseResource& res)
+            : Type(ValueType::kResource), resource(res), bytes(), Integer(0), _array(), _map() {}
 
     Value operator+(Value& right) {
         if (this->Type == ValueType::kString && right.Type == ValueType::kString) {

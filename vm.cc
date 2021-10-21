@@ -7,14 +7,25 @@ extern Interpreter::BuiltinMethod g_builtinMethod[];
 
 namespace Interpreter {
 
-Executor::Executor() {
+Executor::Executor():mScript(NULL) {
     RegisgerFunction(g_builtinMethod, g_builtinMethod_size);
 }
 
-void Executor::Execute(Script* script) {
+bool Executor::Execute(scoped_ptr<Script> script,std::string& errmsg) {
+    bool bRet = false;
     mScript = script;
-    VMContext* context = new VMContext(VMContext::File, NULL);
-    Execute(mScript->EntryPoint, context);
+    scoped_ptr<VMContext> context = new VMContext(VMContext::File, NULL);
+    try
+    {
+        Execute(mScript->EntryPoint, context);
+        bRet = true;
+    }
+    catch(const RuntimeException& e)
+    {
+        errmsg = e.what();
+    }
+    mScript = NULL;
+    return bRet;
 }
 
 void Executor::RegisgerFunction(BuiltinMethod methods[], int count) {
@@ -31,7 +42,7 @@ RUNTIME_FUNCTION Executor::GetBuiltinMethod(const std::string& name) {
     return iter->second;
 }
 
-Value Executor::Execute(Instruction* ins, VMContext* ctx) {
+Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
     if (ctx->IsExecutedInterupt()) {
         LOG("Instruction execute interupted :" + ins->ToString());
         return ctx->GetReturnValue();
@@ -136,21 +147,18 @@ Value Executor::Execute(Instruction* ins, VMContext* ctx) {
     }
 
     case Instructions::kFORStatement: {
-        VMContext* newCtx = new VMContext(VMContext::For, ctx);
+        scoped_ptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
         ExecuteForStatement(ins, newCtx);
-        delete newCtx;
         return Value();
     }
     case Instructions::kForInStatement: {
-        VMContext* newCtx = new VMContext(VMContext::For, ctx);
+        scoped_ptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
         ExecuteForInStatement(ins, newCtx);
-        delete newCtx;
         return Value();
     }
     case Instructions::kSwitchCaseStatement: {
-        VMContext* newCtx = new VMContext(VMContext::Switch, ctx);
+        scoped_ptr<VMContext> newCtx = new VMContext(VMContext::Switch, ctx.get());
         ExecuteSwitchStatement(ins, newCtx);
-        delete newCtx;
         return Value();
     }
     case Instructions::kBREAKStatement: {
@@ -177,7 +185,7 @@ Value Executor::Execute(Instruction* ins, VMContext* ctx) {
     }
 }
 
-Value Executor::ExecuteIfStatement(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteIfStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* one = mScript->GetInstruction(ins->Refs[0]);
     Instruction* tow = mScript->GetInstruction(ins->Refs[1]);
     Instruction* three = mScript->GetInstruction(ins->Refs[2]);
@@ -209,7 +217,7 @@ Value Executor::ExecuteIfStatement(Instruction* ins, VMContext* ctx) {
     return Value();
 }
 
-Value Executor::ExecuteArithmeticOperation(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteArithmeticOperation(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* first = mScript->GetInstruction(ins->Refs[0]);
     Value firstVal = Execute(first, ctx);
     if (ins->OpCode == Instructions::kNOT) {
@@ -247,7 +255,7 @@ Value Executor::ExecuteArithmeticOperation(Instruction* ins, VMContext* ctx) {
     }
 }
 
-Value Executor::ExecuteList(std::vector<Instruction*> insList, VMContext* ctx) {
+Value Executor::ExecuteList(std::vector<Instruction*> insList, scoped_ptr<VMContext> ctx) {
     std::vector<Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
         Execute(*iter, ctx);
@@ -259,8 +267,8 @@ Value Executor::ExecuteList(std::vector<Instruction*> insList, VMContext* ctx) {
     return Value();
 }
 
-Value Executor::CallFunction(Instruction* ins, VMContext* ctx) {
-    VMContext* newCtx = new VMContext(VMContext::Function, ctx);
+Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
+    scoped_ptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
     Instruction* func = ctx->GetFunction(ins->Name);
     if (func == NULL) {
         RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
@@ -277,7 +285,6 @@ Value Executor::CallFunction(Instruction* ins, VMContext* ctx) {
             iter++;
         }
         Value val = method(actualValues, newCtx, this);
-        delete newCtx;
         return val;
     }
     Instruction* formalParamersList = mScript->GetInstruction(func->Refs[0]);
@@ -286,7 +293,6 @@ Value Executor::CallFunction(Instruction* ins, VMContext* ctx) {
 
     if (actualParamerList->Refs.size() != actualParamerList->Refs.size()) {
         throw RuntimeException("actual parameters count not equal formal paramers");
-        return Value();
     }
     std::vector<Instruction*> actualParamers = mScript->GetInstructions(actualParamerList->Refs);
     std::vector<Value> actualValues;
@@ -306,12 +312,11 @@ Value Executor::CallFunction(Instruction* ins, VMContext* ctx) {
     }
     Execute(body, newCtx);
     Value val = newCtx->GetReturnValue();
-    delete newCtx;
     return val;
 }
 Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& args,
-                                   VMContext* ctx) {
-    VMContext* newCtx = new VMContext(VMContext::Function, ctx);
+                                   scoped_ptr<VMContext> ctx) {
+    scoped_ptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
     Instruction* func = ctx->GetFunction(name);
     Instruction* formalParamersList = mScript->GetInstruction(func->Refs[0]);
     Instruction* body = mScript->GetInstruction(func->Refs[1]);
@@ -330,11 +335,10 @@ Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& 
     }
     Execute(body, newCtx);
     Value val = newCtx->GetReturnValue();
-    delete newCtx;
     return val;
 }
 
-Value Executor::ExecuteForStatement(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteForStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* init = mScript->GetInstruction(ins->Refs[0]);
     Instruction* condition = mScript->GetInstruction(ins->Refs[1]);
     Instruction* after = mScript->GetInstruction(ins->Refs[2]);
@@ -358,7 +362,7 @@ Value Executor::ExecuteForStatement(Instruction* ins, VMContext* ctx) {
     return Value();
 }
 
-Value Executor::ExecuteForInStatement(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteForInStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* iter_able_obj = mScript->GetInstruction(ins->Refs[0]);
     Instruction* body = mScript->GetInstruction(ins->Refs[1]);
     std::list<std::string> key_val = split(ins->Name, ',');
@@ -414,7 +418,7 @@ Value Executor::ExecuteForInStatement(Instruction* ins, VMContext* ctx) {
     return Value();
 }
 
-Value Executor::ExecuteCreateMap(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteCreateMap(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* list = mScript->GetInstruction(ins->Refs[0]);
     if (list->OpCode == Instructions::kNop) {
         return Value::make_map();
@@ -432,7 +436,7 @@ Value Executor::ExecuteCreateMap(Instruction* ins, VMContext* ctx) {
     }
     return val;
 }
-Value Executor::ExecuteCreateArray(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteCreateArray(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* list = mScript->GetInstruction(ins->Refs[0]);
     if (list->OpCode == Instructions::kNop) {
         return Value::make_array();
@@ -446,7 +450,7 @@ Value Executor::ExecuteCreateArray(Instruction* ins, VMContext* ctx) {
     }
     return val;
 }
-Value Executor::ExecuteSlice(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteSlice(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* from = mScript->GetInstruction(ins->Refs[0]);
     Instruction* to = mScript->GetInstruction(ins->Refs[1]);
     Value fromVal = Execute(from, ctx);
@@ -454,7 +458,7 @@ Value Executor::ExecuteSlice(Instruction* ins, VMContext* ctx) {
     Value opObj = ctx->GetVarValue(ins->Name);
     return opObj.sub_slice(fromVal, toVal);
 }
-Value Executor::ExecuteArrayReadWrite(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteArrayReadWrite(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* where = mScript->GetInstruction(ins->Refs[0]);
     Value index = Execute(where, ctx);
     Value opObj = ctx->GetVarValue(ins->Name);
@@ -468,7 +472,7 @@ Value Executor::ExecuteArrayReadWrite(Instruction* ins, VMContext* ctx) {
     return opObj;
 }
 
-std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList, VMContext* ctx) {
+std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList, scoped_ptr<VMContext> ctx) {
     std::vector<Value> result;
     std::vector<Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
@@ -478,7 +482,7 @@ std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insLis
     return result;
 }
 
-Value Executor::ExecuteSwitchStatement(Instruction* ins, VMContext* ctx) {
+Value Executor::ExecuteSwitchStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
     Instruction* value = mScript->GetInstruction(ins->Refs[0]);
     Instruction* cases = mScript->GetInstruction(ins->Refs[1]);
     Instruction* defaultBranch = mScript->GetInstruction(ins->Refs[2]);
