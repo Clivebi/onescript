@@ -29,6 +29,7 @@ protected:
     Type mType;
     int mDeepth;
     int mFlags;
+    bool mIsEnableWarning;
     Value mReturnValue;
     VMContext();
     VMContext(const VMContext&);
@@ -36,6 +37,8 @@ protected:
 public:
     VMContext(Type type, VMContext* Parent);
     ~VMContext();
+
+    void SetEnableWarning(bool val){mIsEnableWarning = val;}
 
     bool IsExecutedInterupt() { return (mFlags & 0xFF); }
     void CleanContinueFlag() { mFlags &= 0xFE; }
@@ -60,6 +63,7 @@ public:
 protected:
     void LoadBuiltinVar();
     bool IsBuiltinVarName(const std::string& name);
+    bool IsShadowName(const std::string& name);
 
 private:
     std::map<std::string, Value> mVars;

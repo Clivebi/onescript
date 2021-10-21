@@ -137,6 +137,10 @@ condition_statement:if_expresion
         {
                 $$=Parser::current()->CreateIFStatement($1,$2,$3);
         }
+        |if_expresion elseif_expresionlist
+        {
+                $$=Parser::current()->CreateIFStatement($1,$2,NULL);
+        }
         ;
 
 if_expresion: IF LP value_expression RP block

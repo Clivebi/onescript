@@ -26,7 +26,7 @@ public:
     Executor();
 
 public:
-    bool Execute(scoped_ptr<Script> script, std::string& errmsg);
+    bool Execute(scoped_ptr<Script> script, std::string& errmsg,bool showWarning=false);
     void RegisgerFunction(BuiltinMethod methods[], int count);
     Value CallScriptFunction(const std::string& name, std::vector<Value>& value,
                              scoped_ptr<VMContext> ctx);

@@ -11,14 +11,16 @@ BuiltinValue g_builtinVar[] = {
         {"true", Value(1l)},
 };
 
+
 #define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
 
-VMContext::VMContext(Type type, VMContext* Parent) : mFlags(0) {
+VMContext::VMContext(Type type, VMContext* Parent) : mFlags(0),mIsEnableWarning(false) {
     mParent = Parent;
     mType = type;
     mDeepth = 0;
     if (mParent != NULL) {
         mDeepth = mParent->mDeepth + 1;
+        mIsEnableWarning = mParent->mIsEnableWarning;
     }
     LoadBuiltinVar();
 }
@@ -93,6 +95,9 @@ void VMContext::AddVar(const std::string& name) {
     if (!IsBuiltinVarName(name)) {
         throw RuntimeException("variable name is builtin :" + name);
     }
+    if(mIsEnableWarning && IsShadowName(name)){
+        LOG("variable name shadow :"+name);
+    }
     std::map<std::string, Value>::iterator iter = mVars.find(name);
     if (iter == mVars.end()) {
         mVars[name] = Value();
@@ -114,8 +119,22 @@ void VMContext::SetVarValue(const std::string& name, Value value) {
         }
         ctx = ctx->mParent;
     }
-    LOG("variable <" + name + "> not found, so new one.");
+    if(mIsEnableWarning){
+         LOG("variable <" + name + "> not found, so new one.");
+    }
     mVars[name] = value;
+}
+
+bool VMContext::IsShadowName(const std::string& name){
+   VMContext* ctx = this;
+    while (ctx != NULL) {
+        std::map<std::string, Value>::iterator iter = ctx->mVars.find(name);
+        if (iter != ctx->mVars.end()) {
+            return true;
+        }
+        ctx = ctx->mParent;
+    }
+    return false;
 }
 
 Value VMContext::GetVarValue(const std::string& name) {
@@ -135,13 +154,16 @@ void VMContext::AddFunction(Instruction* obj) {
     if (mType != File) {
         throw RuntimeException("function declaration must in the top block name:" + obj->Name);
     }
+    if(obj->Name == "exit"){
+        throw RuntimeException("exit function can't overwrite");
+    }
 
     std::map<std::string, Instruction*>::iterator iter = mFunctions.find(obj->Name);
     if (iter == mFunctions.end()) {
         mFunctions[obj->Name] = obj;
         return;
     }
-    throw RuntimeException("function already exit name:" + obj->Name);
+    throw RuntimeException("function already exist name:" + obj->Name);
 }
 
 Instruction* VMContext::GetFunction(const std::string& name) {

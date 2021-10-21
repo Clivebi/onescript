@@ -7,21 +7,19 @@ extern Interpreter::BuiltinMethod g_builtinMethod[];
 
 namespace Interpreter {
 
-Executor::Executor():mScript(NULL) {
+Executor::Executor() : mScript(NULL) {
     RegisgerFunction(g_builtinMethod, g_builtinMethod_size);
 }
 
-bool Executor::Execute(scoped_ptr<Script> script,std::string& errmsg) {
+bool Executor::Execute(scoped_ptr<Script> script, std::string& errmsg, bool showWarning) {
     bool bRet = false;
     mScript = script;
     scoped_ptr<VMContext> context = new VMContext(VMContext::File, NULL);
-    try
-    {
+    context->SetEnableWarning(showWarning);
+    try {
         Execute(mScript->EntryPoint, context);
         bRet = true;
-    }
-    catch(const RuntimeException& e)
-    {
+    } catch (const RuntimeException& e) {
         errmsg = e.what();
     }
     mScript = NULL;
@@ -193,6 +191,9 @@ Value Executor::ExecuteIfStatement(Instruction* ins, scoped_ptr<VMContext> ctx) 
     if (val.ToBoolen()) {
         return Value();
     }
+    if (ctx->IsExecutedInterupt()) {
+        return Value();
+    }
     if (tow->OpCode != Instructions::kNop) {
         std::vector<Instruction*> branchs = mScript->GetInstructions(tow->Refs);
         std::vector<Instruction*>::iterator iter = branchs.begin();
@@ -282,6 +283,9 @@ Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
         std::vector<Instruction*>::iterator iter = actualParamers.begin();
         while (iter != actualParamers.end()) {
             actualValues.push_back(Execute(*iter, ctx));
+            if (ctx->IsExecutedInterupt()) {
+                return Value();
+            }
             iter++;
         }
         Value val = method(actualValues, newCtx, this);
@@ -299,6 +303,9 @@ Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
     std::vector<Instruction*>::iterator iter = actualParamers.begin();
     while (iter != actualParamers.end()) {
         actualValues.push_back(Execute(*iter, ctx));
+        if (ctx->IsExecutedInterupt()) {
+            return Value();
+        }
         iter++;
     }
     std::vector<Instruction*> formalParamers = mScript->GetInstructions(formalParamersList->Refs);
@@ -431,6 +438,9 @@ Value Executor::ExecuteCreateMap(Instruction* ins, scoped_ptr<VMContext> ctx) {
         Instruction* value = mScript->GetInstruction((*iter)->Refs[1]);
         Value keyVal = Execute(key, ctx);
         Value valVal = Execute(value, ctx);
+        if (ctx->IsExecutedInterupt()) {
+            return Value();
+        }
         val._map[keyVal] = valVal;
         iter++;
     }
@@ -446,6 +456,9 @@ Value Executor::ExecuteCreateArray(Instruction* ins, scoped_ptr<VMContext> ctx) 
     std::vector<Instruction*>::iterator iter = items.begin();
     while (iter != items.end()) {
         val._array.push_back(Execute((*iter), ctx));
+        if (ctx->IsExecutedInterupt()) {
+            return Value();
+        }
         iter++;
     }
     return val;
@@ -472,7 +485,8 @@ Value Executor::ExecuteArrayReadWrite(Instruction* ins, scoped_ptr<VMContext> ct
     return opObj;
 }
 
-std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList, scoped_ptr<VMContext> ctx) {
+std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList,
+                                                scoped_ptr<VMContext> ctx) {
     std::vector<Value> result;
     std::vector<Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {

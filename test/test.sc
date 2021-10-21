@@ -93,8 +93,6 @@ func find_number(max){
             count3++;
         }else if(i%4 == 0){
             count4++;
-        }else{
-
         }
     }
 }

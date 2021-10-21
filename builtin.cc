@@ -10,7 +10,7 @@ Value Println(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* v
         result += iter->ToString();
         result += " ";
     }
-    std::cout << result << "\n" << std::endl;
+    std::cout << result << std::endl;
     return Value();
 }
 
@@ -70,7 +70,7 @@ Value Read(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) 
 }
 
 Value Close(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
-    if(values.size() !=1){
+    if (values.size() != 1) {
         throw RuntimeException("Close invalid parameter count");
     }
     Value res = values.front();
@@ -81,8 +81,20 @@ Value Close(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm)
     return Value();
 }
 
-int g_builtinMethod_size = 6;
+Value Exit(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+    if (values.size() != 1) {
+        throw RuntimeException("Close invalid parameter count");
+    }
+    Value exitCode = values.front();
+    if (exitCode.Type != ValueType::kInteger) {
+        throw RuntimeException("exit code parameter type must a integer");
+    }
+    ctx->ExitExecuted(exitCode);
+    return Value();
+}
 
-BuiltinMethod g_builtinMethod[6] = {
-        {"Println", Println}, {"TypeOf", TypeOf},     {"len", Len},   {"ToString", ToString},
-        {"append", Append},  {"Close", Close}};
+int g_builtinMethod_size = 7;
+
+BuiltinMethod g_builtinMethod[7] = {{"exit", Exit},  {"Println", Println},   {"TypeOf", TypeOf},
+                                    {"len", Len},    {"ToString", ToString}, {"append", Append},
+                                    {"Close", Close}};
