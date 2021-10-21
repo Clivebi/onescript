@@ -34,6 +34,7 @@ class Resource : public RefBase {
 public:
     virtual ~Resource() { Close(); }
     virtual void Close() {};
+    virtual bool IsAvaliable() = 0;
 };
 
 template <class T>
@@ -91,6 +92,7 @@ public:
             mFile = NULL;
         }
     }
+    bool IsAvaliable() { return mFile != NULL; }
 };
 
 typedef scoped_ptr<Resource> AutoCloseResource;
@@ -165,7 +167,13 @@ public:
 
     Value(const AutoCloseResource& res)
             : Type(ValueType::kResource), resource(res), bytes(), Integer(0), _array(), _map() {}
-
+    Value(Resource* res)
+            : Type(ValueType::kResource),
+              resource(AutoCloseResource(res)),
+              bytes(),
+              Integer(0),
+              _array(),
+              _map() {}
     Value operator+(Value& right) {
         if (this->Type == ValueType::kString && right.Type == ValueType::kString) {
             return Value(bytes + right.bytes);
@@ -413,6 +421,8 @@ public:
             return "Array";
         case ValueType::kMap:
             return "Map";
+        case ValueType::kResource:
+            return "Resource";
         default:
             return "Unknown";
         }
