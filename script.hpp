@@ -6,7 +6,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
+#include "exception.hpp"
 #include "value.hpp"
 
 namespace Interpreter {
@@ -65,21 +65,25 @@ public:
     std::vector<long> Refs;
 
 public:
-    Instruction() : OpCode(Instructions::kNop) {}
-    Instruction(Instruction* one) { Refs.push_back(one->key); }
-    Instruction(Instruction* one, Instruction* tow) {
+    Instruction() : OpCode(Instructions::kNop),key(0) {}
+    Instruction(Instruction* one):key(0) { Refs.push_back(one->key); }
+    Instruction(Instruction* one, Instruction* tow):key(0) {
         Refs.push_back(one->key);
         Refs.push_back(tow->key);
     }
-    Instruction(Instruction* one, Instruction* tow, Instruction* three) {
+    Instruction(Instruction* one, Instruction* tow, Instruction* three):key(0) {
         Refs.push_back(one->key);
         Refs.push_back(tow->key);
         Refs.push_back(three->key);
     }
-    bool IsNULL(){
-        return OpCode == Instructions::kNop;
+    Instruction(Instruction* one, Instruction* tow, Instruction* three,Instruction*four):key(0) {
+        Refs.push_back(one->key);
+        Refs.push_back(tow->key);
+        Refs.push_back(three->key);
+        Refs.push_back(four->key);
     }
-    std::string ToString() {
+    bool IsNULL() const { return OpCode == Instructions::kNop; }
+    std::string ToString() const {
         if (OpCode >= Instructions::kADD && OpCode <= Instructions::kMAXArithmeticOP) {
             return "Arithmetic Operation";
         }
@@ -136,15 +140,17 @@ public:
     }
 };
 
-class Script: public RefBase {
+class Script : public CRefCountedThreadSafe<Script> {
 public:
     Instruction* EntryPoint;
 
-    Script() {
+    explicit Script() {
         EntryPoint = NULL;
         mInstructionKey = 1;
         mConstKey = 1;
         mInstructionTable[0] = new Instruction();
+        mInstructionBase = 0;
+        mConstBase = 0;
     }
     ~Script() {
         for (std::map<long, Instruction*>::iterator iter = mInstructionTable.begin();
@@ -152,32 +158,59 @@ public:
             delete (iter->second);
         }
         mInstructionTable.clear();
+        mConstTable.clear();
     }
 
 protected:
     long mInstructionKey;
     long mConstKey;
+    long mInstructionBase;
+    long mConstBase;
     std::map<long, Instruction*> mInstructionTable;
     std::map<long, Value> mConstTable;
 
 public:
+    void RelocateInstruction(long newbase, long newConstbase) {
+        if(mInstructionBase != 0 || mConstBase != 0){
+            throw RuntimeException("script can only Relocate once");
+        }
+        for (std::map<long, Instruction*>::iterator iter = mInstructionTable.begin();
+             iter != mInstructionTable.end(); iter++) {
+             Instruction* ptr = iter->second;
+             if(ptr->OpCode == Instructions::kConst){
+                 assert(ptr->Refs[0] < mConstKey);
+                 ptr->Refs[0] = ptr->Refs[0]+newConstbase;
+             }else{
+                 for(size_t i =0; i< ptr->Refs.size();i++){
+                     assert(ptr->Refs[i] < mInstructionKey);
+                     ptr->Refs[i] = ptr->Refs[i]+newbase;
+                 }
+             }
+             ptr->key += newbase;
+        }
+        mInstructionBase = newbase;
+        mConstBase = newConstbase;
+    }
+
+    bool IsContainInstruction(long key) {
+        return key >= mInstructionBase && key < GetNextInstructionKey();
+    }
+    bool IsContainConst(long key) { return key >= mConstBase && key < GetNextConstKey(); }
+    long GetNextInstructionKey() { return mInstructionBase + mInstructionKey; }
+    long GetNextConstKey() { return mConstBase + mConstKey; }
+
+public:
     Instruction* NewGroup(Instruction* element) {
-        Instruction* ins = new Instruction();
+        Instruction* ins = new Instruction(element);
         ins->OpCode = Instructions::kGroup;
-        ins->Refs.push_back(element->key);
         ins->key = mInstructionKey;
         mInstructionKey++;
         mInstructionTable[ins->key] = ins;
         return ins;
     }
-    Instruction* AddGroup(Instruction* group, Instruction* element) {
+    Instruction* AddToGroup(Instruction* group, Instruction* element) {
         assert(group->OpCode == Instructions::kGroup);
         group->Refs.push_back(element->key);
-        return group;
-    }
-    Instruction* AddGroupToHead(Instruction* group, Instruction* element) {
-        assert(group->OpCode == Instructions::kGroup);
-        group->Refs.insert(group->Refs.begin(), element->key);
         return group;
     }
     Instruction* NULLInstruction() { return mInstructionTable[0]; }
@@ -204,6 +237,13 @@ public:
     }
     Instruction* NewInstruction(Instruction* one, Instruction* tow, Instruction* three) {
         Instruction* ins = new Instruction(one, tow, three);
+        ins->key = mInstructionKey;
+        mInstructionKey++;
+        mInstructionTable[ins->key] = ins;
+        return ins;
+    }
+    Instruction* NewInstruction(Instruction* one, Instruction* tow, Instruction* three,Instruction*four) {
+        Instruction* ins = new Instruction(one, tow, three,four);
         ins->key = mInstructionKey;
         mInstructionKey++;
         mInstructionTable[ins->key] = ins;
@@ -241,19 +281,19 @@ public:
         return ins;
     }
 
-    Value GetConstValue(long key) { return mConstTable[key]; }
+    Value GetConstValue(long key) { return mConstTable[key-mConstBase]; }
 
-    Instruction* GetInstruction(long key) { return mInstructionTable[key]; }
+    const Instruction* GetInstruction(long key) { return mInstructionTable[key-mInstructionBase]; }
 
-    std::vector<Instruction*> GetInstructions(std::vector<long> keys) {
-        std::vector<Instruction*> result;
+    std::vector<const Instruction*> GetInstructions(std::vector<long> keys) {
+        std::vector<const Instruction*> result;
         for (std::vector<long>::iterator iter = keys.begin(); iter != keys.end(); iter++) {
-            result.push_back(mInstructionTable[*iter]);
+            result.push_back(mInstructionTable[*iter-mInstructionBase]);
         }
         return result;
     }
 
-    std::string DumpInstruction(Instruction* ins, std::string prefix) {
+    std::string DumpInstruction(const Instruction* ins, std::string prefix) {
         std::stringstream stream;
         stream << prefix;
         if (ins->OpCode == Instructions::kConst) {
@@ -263,8 +303,8 @@ public:
         }
         stream << ins->key << " " << ins->ToString() << std::endl;
         if (ins->Refs.size() > 0) {
-            std::vector<Instruction*> subs = GetInstructions(ins->Refs);
-            std::vector<Instruction*>::iterator iter = subs.begin();
+            std::vector<const Instruction*> subs = GetInstructions(ins->Refs);
+            std::vector<const Instruction*>::iterator iter = subs.begin();
             while (iter != subs.end()) {
                 stream << DumpInstruction(*iter, prefix + "\t");
                 iter++;

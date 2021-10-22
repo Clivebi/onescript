@@ -150,15 +150,15 @@ Value VMContext::GetVarValue(const std::string& name) {
     throw RuntimeException("variable not found :" + name);
 }
 
-void VMContext::AddFunction(Instruction* obj) {
+void VMContext::AddFunction(const Instruction* obj) {
     if (mType != File) {
         throw RuntimeException("function declaration must in the top block name:" + obj->Name);
     }
     if(obj->Name == "exit"){
         throw RuntimeException("exit function can't overwrite");
     }
-
-    std::map<std::string, Instruction*>::iterator iter = mFunctions.find(obj->Name);
+    LOG("add function:"+obj->Name);
+    std::map<std::string, const Instruction*>::iterator iter = mFunctions.find(obj->Name);
     if (iter == mFunctions.end()) {
         mFunctions[obj->Name] = obj;
         return;
@@ -166,12 +166,12 @@ void VMContext::AddFunction(Instruction* obj) {
     throw RuntimeException("function already exist name:" + obj->Name);
 }
 
-Instruction* VMContext::GetFunction(const std::string& name) {
+const Instruction* VMContext::GetFunction(const std::string& name) {
     VMContext* ctx = this;
     while (ctx->mParent != NULL) {
         ctx = ctx->mParent;
     }
-    std::map<std::string, Instruction*>::iterator iter = ctx->mFunctions.find(name);
+    std::map<std::string, const Instruction*>::iterator iter = ctx->mFunctions.find(name);
     if (iter == ctx->mFunctions.end()) {
         if (mParent != NULL) {
             return mParent->GetFunction(name);

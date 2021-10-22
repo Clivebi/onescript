@@ -7,29 +7,26 @@
 #include "script.hpp"
 
 namespace Interpreter {
-class Parser {
+class Parser: public CRefCountedThreadSafe<Parser> {
 protected:
-    scoped_ptr<Script> mScript;
-
-    Parser() : mScript(NULL) {}
+    scoped_refptr<Script> mScript;
 
     std::list<std::string*> mStringHolder;
     std::string mScanningString;
 
     bool mLogInstruction;
+
+public:
+    Parser():mScript(NULL){
+
+    }
     ~Parser() {
         Finish();
     }
 
-public:
-    static Parser* current() {
-        static Parser parser;
-        return &parser;
-    }
-
     void Start() { mScript = new Script(); }
-    scoped_ptr<Script> Finish() {
-        scoped_ptr<Script> ret = mScript;
+    scoped_refptr<Script> Finish() {
+        scoped_refptr<Script> ret = mScript;
         mScript = NULL;
         mScanningString.clear();
         std::list<std::string*>::iterator iter = mStringHolder.begin();
@@ -57,7 +54,6 @@ public:
     Instruction* NULLObject();
     //instruction list
     Instruction* CreateObjectList(Instruction* element);
-    Instruction* AddObjectToObjectListHead(Instruction* list, Instruction* element);
     Instruction* AddObjectToObjectList(Instruction* list, Instruction* element);
 
     //var declaration read & write

@@ -8,75 +8,17 @@
 #include <string>
 #include <vector>
 
+#include "base.hpp"
 #include "exception.hpp"
 #include "logger.hpp"
 
 namespace Interpreter {
 
-class RefBase {
-private:
-    int mRef;
-
-public:
-    RefBase() : mRef(0) {}
-    virtual ~RefBase() {}
-    virtual int AddRef() { return mRef++; }
-    virtual int Release() {
-        if (0 == --mRef) {
-            delete this;
-            return 0;
-        }
-        return mRef;
-    }
-};
-
-class Resource : public RefBase {
+class Resource : public CRefCountedThreadSafe<Resource> {
 public:
     virtual ~Resource() { Close(); }
     virtual void Close() {};
     virtual bool IsAvaliable() = 0;
-};
-
-template <class T>
-class scoped_ptr {
-private:
-    T* mPtr;
-
-public:
-    scoped_ptr(T* ptr) : mPtr(ptr) {
-        if (mPtr != NULL) mPtr->AddRef();
-    }
-    ~scoped_ptr() {
-        if (mPtr != NULL) mPtr->Release();
-    }
-
-    scoped_ptr(const scoped_ptr& res) {
-        mPtr = res.mPtr;
-        if (mPtr != NULL) {
-            mPtr->AddRef();
-        }
-    }
-
-    scoped_ptr& operator=(const scoped_ptr& right) {
-        if (mPtr != NULL) {
-            mPtr->Release();
-            mPtr = NULL;
-        }
-        mPtr = right.mPtr;
-        if (mPtr != NULL) {
-            mPtr->AddRef();
-        }
-        return *this;
-    }
-    T* get() { return mPtr; }
-
-    T* operator->() { return mPtr; }
-
-    T* Detach() {
-        Resource* ret = mPtr;
-        mPtr = NULL;
-        return ret;
-    }
 };
 
 class FileResource : public Resource {
@@ -95,7 +37,7 @@ public:
     bool IsAvaliable() { return mFile != NULL; }
 };
 
-typedef scoped_ptr<Resource> AutoCloseResource;
+typedef scoped_refptr<Resource> Resource_ptr;
 
 namespace ValueType {
 const int kNULL = 0;
@@ -118,7 +60,7 @@ public:
     std::string bytes;
     std::vector<Value> _array;
     std::map<Value, Value> _map;
-    AutoCloseResource resource;
+    Resource_ptr resource;
     Value(bool val) : Type(ValueType::kInteger), resource(NULL) {
         Integer = 0;
         if (val) {
@@ -164,12 +106,9 @@ public:
             : Type(ValueType::kArray), bytes(), Integer(0), _array(val), _map(), resource(NULL) {}
     Value(const std::map<Value, Value>& val)
             : Type(ValueType::kArray), bytes(), Integer(0), _array(), _map(val), resource(NULL) {}
-
-    Value(const AutoCloseResource& res)
-            : Type(ValueType::kResource), resource(res), bytes(), Integer(0), _array(), _map() {}
     Value(Resource* res)
             : Type(ValueType::kResource),
-              resource(AutoCloseResource(res)),
+              resource(make_scoped_refptr(res)),
               bytes(),
               Integer(0),
               _array(),

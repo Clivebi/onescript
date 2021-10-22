@@ -7,22 +7,22 @@ extern Interpreter::BuiltinMethod g_builtinMethod[];
 
 namespace Interpreter {
 
-Executor::Executor() : mScript(NULL) {
+Executor::Executor(ExecutorCallback* callback) : mScriptList(), mCallback(callback) {
     RegisgerFunction(g_builtinMethod, g_builtinMethod_size);
 }
 
-bool Executor::Execute(scoped_ptr<Script> script, std::string& errmsg, bool showWarning) {
+bool Executor::Execute(scoped_refptr<Script> script, std::string& errmsg, bool showWarning) {
     bool bRet = false;
-    mScript = script;
-    scoped_ptr<VMContext> context = new VMContext(VMContext::File, NULL);
+    mScriptList.push_back(script);
+    scoped_refptr<VMContext> context = new VMContext(VMContext::File, NULL);
     context->SetEnableWarning(showWarning);
     try {
-        Execute(mScript->EntryPoint, context);
+        Execute(script->EntryPoint, context);
         bRet = true;
     } catch (const RuntimeException& e) {
         errmsg = e.what();
     }
-    mScript = NULL;
+    mScriptList.clear();
     return bRet;
 }
 
@@ -40,7 +40,58 @@ RUNTIME_FUNCTION Executor::GetBuiltinMethod(const std::string& name) {
     return iter->second;
 }
 
-Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
+void Executor::RequireScript(const std::string& name, scoped_refptr<VMContext> ctx) {
+    if (mCallback) {
+        scoped_refptr<Script> required = mCallback->LoadScript(name.c_str());
+        if (required.get() == NULL) {
+            throw RuntimeException("load script <" + name + "> failed");
+        }
+        scoped_refptr<Script> last = mScriptList.back();
+        required->RelocateInstruction(10000, 10000);
+        mScriptList.push_back(required);
+        Execute(required->EntryPoint, ctx);
+    }
+}
+
+const Instruction* Executor::GetInstruction(long key) {
+    std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
+    while (iter != mScriptList.end()) {
+        if ((*iter)->IsContainInstruction(key)) {
+            return (*iter)->GetInstruction(key);
+        }
+        iter++;
+    }
+    char buf[16] = {0};
+    snprintf(buf, 16, "%ld", key);
+    throw RuntimeException(std::string("unknown instruction key:") + buf);
+}
+
+std::vector<const Instruction*> Executor::GetInstructions(std::vector<long> keys) {
+    std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
+    while (iter != mScriptList.end()) {
+        if ((*iter)->IsContainInstruction(keys[0])) {
+            return (*iter)->GetInstructions(keys);
+        }
+        iter++;
+    }
+    char buf[16] = {0};
+    snprintf(buf, 16, "%ld", keys[0]);
+    throw RuntimeException(std::string("unknown instruction key:") + buf);
+}
+
+Value Executor::GetConstValue(long key) {
+    std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
+    while (iter != mScriptList.end()) {
+        if ((*iter)->IsContainConst(key)) {
+            return (*iter)->GetConstValue(key);
+        }
+        iter++;
+    }
+    throw RuntimeException("unknown const key");
+}
+
+Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    //LOG("execute " + ins->ToString());
     if (ctx->IsExecutedInterupt()) {
         LOG("Instruction execute interupted :" + ins->ToString());
         return ctx->GetReturnValue();
@@ -52,11 +103,11 @@ Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
     case Instructions::kNop:
         return Value();
     case Instructions::kConst:
-        return mScript->GetConstValue(ins->Refs[0]);
+        return GetConstValue(ins->Refs[0]);
     case Instructions::kNewVar: {
         ctx->AddVar(ins->Name);
         if (ins->Refs.size() == 1) {
-            Value initValue = Execute(mScript->GetInstruction(ins->Refs[0]), ctx);
+            Value initValue = Execute(GetInstruction(ins->Refs[0]), ctx);
             ctx->SetVarValue(ins->Name, initValue);
             return initValue;
         }
@@ -65,32 +116,32 @@ Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
     case Instructions::kReadVar:
         return ctx->GetVarValue(ins->Name);
     case Instructions::kWriteVar: {
-        Value val = Execute(mScript->GetInstruction(ins->Refs.front()), ctx);
+        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         ctx->SetVarValue(ins->Name, val);
         return Value();
     }
     case Instructions::kADDWrite: {
         Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(mScript->GetInstruction(ins->Refs.front()), ctx);
+        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         Value newVal = valOld + val;
         ctx->SetVarValue(ins->Name, newVal);
         return Value();
     }
     case Instructions::kSUBWrite: {
         Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(mScript->GetInstruction(ins->Refs.front()), ctx);
+        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         ctx->SetVarValue(ins->Name, valOld - val);
         return Value();
     }
     case Instructions::kDIVWrite: {
         Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(mScript->GetInstruction(ins->Refs.front()), ctx);
+        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         ctx->SetVarValue(ins->Name, valOld * val);
         return Value();
     }
     case Instructions::kMULWrite: {
         Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(mScript->GetInstruction(ins->Refs.front()), ctx);
+        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         ctx->SetVarValue(ins->Name, valOld / val);
         return Value();
     }
@@ -121,7 +172,7 @@ Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
     }
 
     case Instructions::kGroup: {
-        ExecuteList(mScript->GetInstructions(ins->Refs), ctx);
+        ExecuteList(GetInstructions(ins->Refs), ctx);
         return Value();
     }
 
@@ -132,30 +183,30 @@ Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
 
     //return indcate the action executed or not
     case Instructions::kContitionExpression: {
-        Value val = Execute(mScript->GetInstruction(ins->Refs[0]), ctx);
+        Value val = Execute(GetInstruction(ins->Refs[0]), ctx);
         if (val.ToBoolen()) {
-            Execute(mScript->GetInstruction(ins->Refs[1]), ctx);
+            Execute(GetInstruction(ins->Refs[1]), ctx);
         }
         return val;
     }
 
     case Instructions::kRETURNStatement: {
-        ctx->ReturnExecuted(Execute(mScript->GetInstruction(ins->Refs[0]), ctx));
+        ctx->ReturnExecuted(Execute(GetInstruction(ins->Refs[0]), ctx));
         return Value();
     }
 
     case Instructions::kFORStatement: {
-        scoped_ptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
+        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
         ExecuteForStatement(ins, newCtx);
         return Value();
     }
     case Instructions::kForInStatement: {
-        scoped_ptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
+        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
         ExecuteForInStatement(ins, newCtx);
         return Value();
     }
     case Instructions::kSwitchCaseStatement: {
-        scoped_ptr<VMContext> newCtx = new VMContext(VMContext::Switch, ctx.get());
+        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Switch, ctx.get());
         ExecuteSwitchStatement(ins, newCtx);
         return Value();
     }
@@ -183,10 +234,10 @@ Value Executor::Execute(Instruction* ins, scoped_ptr<VMContext> ctx) {
     }
 }
 
-Value Executor::ExecuteIfStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* one = mScript->GetInstruction(ins->Refs[0]);
-    Instruction* tow = mScript->GetInstruction(ins->Refs[1]);
-    Instruction* three = mScript->GetInstruction(ins->Refs[2]);
+Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* one = GetInstruction(ins->Refs[0]);
+    const Instruction* tow = GetInstruction(ins->Refs[1]);
+    const Instruction* three = GetInstruction(ins->Refs[2]);
     Value val = Execute(one, ctx);
     if (val.ToBoolen()) {
         return Value();
@@ -195,8 +246,8 @@ Value Executor::ExecuteIfStatement(Instruction* ins, scoped_ptr<VMContext> ctx) 
         return Value();
     }
     if (tow->OpCode != Instructions::kNop) {
-        std::vector<Instruction*> branchs = mScript->GetInstructions(tow->Refs);
-        std::vector<Instruction*>::iterator iter = branchs.begin();
+        std::vector<const Instruction*> branchs = GetInstructions(tow->Refs);
+        std::vector<const Instruction*>::iterator iter = branchs.begin();
         while (iter != branchs.end()) {
             val = Execute(*iter, ctx);
             if (val.ToBoolen()) {
@@ -218,13 +269,13 @@ Value Executor::ExecuteIfStatement(Instruction* ins, scoped_ptr<VMContext> ctx) 
     return Value();
 }
 
-Value Executor::ExecuteArithmeticOperation(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* first = mScript->GetInstruction(ins->Refs[0]);
+Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* first = GetInstruction(ins->Refs[0]);
     Value firstVal = Execute(first, ctx);
     if (ins->OpCode == Instructions::kNOT) {
         return Value(!firstVal.ToBoolen());
     }
-    Instruction* second = mScript->GetInstruction(ins->Refs[1]);
+    const Instruction* second = GetInstruction(ins->Refs[1]);
     Value secondVal = Execute(second, ctx);
 
     switch (ins->OpCode) {
@@ -256,8 +307,8 @@ Value Executor::ExecuteArithmeticOperation(Instruction* ins, scoped_ptr<VMContex
     }
 }
 
-Value Executor::ExecuteList(std::vector<Instruction*> insList, scoped_ptr<VMContext> ctx) {
-    std::vector<Instruction*>::iterator iter = insList.begin();
+Value Executor::ExecuteList(std::vector<const Instruction*> insList, scoped_refptr<VMContext> ctx) {
+    std::vector<const Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
         Execute(*iter, ctx);
         if (ctx->IsExecutedInterupt()) {
@@ -268,19 +319,18 @@ Value Executor::ExecuteList(std::vector<Instruction*> insList, scoped_ptr<VMCont
     return Value();
 }
 
-Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    scoped_ptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
-    Instruction* func = ctx->GetFunction(ins->Name);
+Value Executor::CallFunction(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
+    const Instruction* func = ctx->GetFunction(ins->Name);
     if (func == NULL) {
         RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
         if (method == NULL) {
             throw RuntimeException("call unknown function name:" + ins->Name);
         }
-        Instruction* actualParamerList = mScript->GetInstruction(ins->Refs[0]);
+        const Instruction* actualParamerList = GetInstruction(ins->Refs[0]);
         std::vector<Value> actualValues;
-        std::vector<Instruction*> actualParamers =
-                mScript->GetInstructions(actualParamerList->Refs);
-        std::vector<Instruction*>::iterator iter = actualParamers.begin();
+        std::vector<const Instruction*> actualParamers = GetInstructions(actualParamerList->Refs);
+        std::vector<const Instruction*>::iterator iter = actualParamers.begin();
         while (iter != actualParamers.end()) {
             actualValues.push_back(Execute(*iter, ctx));
             if (ctx->IsExecutedInterupt()) {
@@ -288,19 +338,19 @@ Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
             }
             iter++;
         }
-        Value val = method(actualValues, newCtx, this);
+        Value val = method(actualValues, ctx, this);
         return val;
     }
-    Instruction* formalParamersList = mScript->GetInstruction(func->Refs[0]);
-    Instruction* body = mScript->GetInstruction(func->Refs[1]);
-    Instruction* actualParamerList = mScript->GetInstruction(ins->Refs[0]);
+    const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
+    const Instruction* body = GetInstruction(func->Refs[1]);
+    const Instruction* actualParamerList = GetInstruction(ins->Refs[0]);
 
     if (actualParamerList->Refs.size() != actualParamerList->Refs.size()) {
         throw RuntimeException("actual parameters count not equal formal paramers");
     }
-    std::vector<Instruction*> actualParamers = mScript->GetInstructions(actualParamerList->Refs);
+    std::vector<const Instruction*> actualParamers = GetInstructions(actualParamerList->Refs);
     std::vector<Value> actualValues;
-    std::vector<Instruction*>::iterator iter = actualParamers.begin();
+    std::vector<const Instruction*>::iterator iter = actualParamers.begin();
     while (iter != actualParamers.end()) {
         actualValues.push_back(Execute(*iter, ctx));
         if (ctx->IsExecutedInterupt()) {
@@ -308,7 +358,7 @@ Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
         }
         iter++;
     }
-    std::vector<Instruction*> formalParamers = mScript->GetInstructions(formalParamersList->Refs);
+    std::vector<const Instruction*> formalParamers = GetInstructions(formalParamersList->Refs);
     iter = formalParamers.begin();
     int i = 0;
     while (iter != formalParamers.end()) {
@@ -322,17 +372,17 @@ Value Executor::CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx) {
     return val;
 }
 Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& args,
-                                   scoped_ptr<VMContext> ctx) {
-    scoped_ptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
-    Instruction* func = ctx->GetFunction(name);
-    Instruction* formalParamersList = mScript->GetInstruction(func->Refs[0]);
-    Instruction* body = mScript->GetInstruction(func->Refs[1]);
+                                   scoped_refptr<VMContext> ctx) {
+    scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
+    const Instruction* func = ctx->GetFunction(name);
+    const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
+    const Instruction* body = GetInstruction(func->Refs[1]);
 
     if (args.size() != formalParamersList->Refs.size()) {
         throw RuntimeException("actual parameters count not equal formal paramers");
     }
-    std::vector<Instruction*> formalParamers = mScript->GetInstructions(formalParamersList->Refs);
-    std::vector<Instruction*>::iterator iter = formalParamers.begin();
+    std::vector<const Instruction*> formalParamers = GetInstructions(formalParamersList->Refs);
+    std::vector<const Instruction*>::iterator iter = formalParamers.begin();
     int i = 0;
     while (iter != formalParamers.end()) {
         Execute(*iter, ctx);
@@ -345,11 +395,11 @@ Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& 
     return val;
 }
 
-Value Executor::ExecuteForStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* init = mScript->GetInstruction(ins->Refs[0]);
-    Instruction* condition = mScript->GetInstruction(ins->Refs[1]);
-    Instruction* after = mScript->GetInstruction(ins->Refs[2]);
-    Instruction* block = mScript->GetInstruction(ins->Refs[3]);
+Value Executor::ExecuteForStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* init = GetInstruction(ins->Refs[0]);
+    const Instruction* condition = GetInstruction(ins->Refs[1]);
+    const Instruction* after = GetInstruction(ins->Refs[2]);
+    const Instruction* block = GetInstruction(ins->Refs[3]);
     Execute(init, ctx);
     while (true) {
         Value val = Value(1l);
@@ -369,9 +419,9 @@ Value Executor::ExecuteForStatement(Instruction* ins, scoped_ptr<VMContext> ctx)
     return Value();
 }
 
-Value Executor::ExecuteForInStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* iter_able_obj = mScript->GetInstruction(ins->Refs[0]);
-    Instruction* body = mScript->GetInstruction(ins->Refs[1]);
+Value Executor::ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* iter_able_obj = GetInstruction(ins->Refs[0]);
+    const Instruction* body = GetInstruction(ins->Refs[1]);
     std::list<std::string> key_val = split(ins->Name, ',');
     std::string key = key_val.front(), val = key_val.back();
     Value objVal = Execute(iter_able_obj, ctx);
@@ -425,17 +475,17 @@ Value Executor::ExecuteForInStatement(Instruction* ins, scoped_ptr<VMContext> ct
     return Value();
 }
 
-Value Executor::ExecuteCreateMap(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* list = mScript->GetInstruction(ins->Refs[0]);
+Value Executor::ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* list = GetInstruction(ins->Refs[0]);
     if (list->OpCode == Instructions::kNop) {
         return Value::make_map();
     }
-    std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
+    std::vector<const Instruction*> items = GetInstructions(list->Refs);
     Value val = Value::make_map();
-    std::vector<Instruction*>::iterator iter = items.begin();
+    std::vector<const Instruction*>::iterator iter = items.begin();
     while (iter != items.end()) {
-        Instruction* key = mScript->GetInstruction((*iter)->Refs[0]);
-        Instruction* value = mScript->GetInstruction((*iter)->Refs[1]);
+        const Instruction* key = GetInstruction((*iter)->Refs[0]);
+        const Instruction* value = GetInstruction((*iter)->Refs[1]);
         Value keyVal = Execute(key, ctx);
         Value valVal = Execute(value, ctx);
         if (ctx->IsExecutedInterupt()) {
@@ -446,14 +496,14 @@ Value Executor::ExecuteCreateMap(Instruction* ins, scoped_ptr<VMContext> ctx) {
     }
     return val;
 }
-Value Executor::ExecuteCreateArray(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* list = mScript->GetInstruction(ins->Refs[0]);
+Value Executor::ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* list = GetInstruction(ins->Refs[0]);
     if (list->OpCode == Instructions::kNop) {
         return Value::make_array();
     }
-    std::vector<Instruction*> items = mScript->GetInstructions(list->Refs);
+    std::vector<const Instruction*> items = GetInstructions(list->Refs);
     Value val = Value::make_array();
-    std::vector<Instruction*>::iterator iter = items.begin();
+    std::vector<const Instruction*>::iterator iter = items.begin();
     while (iter != items.end()) {
         val._array.push_back(Execute((*iter), ctx));
         if (ctx->IsExecutedInterupt()) {
@@ -463,32 +513,32 @@ Value Executor::ExecuteCreateArray(Instruction* ins, scoped_ptr<VMContext> ctx) 
     }
     return val;
 }
-Value Executor::ExecuteSlice(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* from = mScript->GetInstruction(ins->Refs[0]);
-    Instruction* to = mScript->GetInstruction(ins->Refs[1]);
+Value Executor::ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* from = GetInstruction(ins->Refs[0]);
+    const Instruction* to = GetInstruction(ins->Refs[1]);
     Value fromVal = Execute(from, ctx);
     Value toVal = Execute(to, ctx);
     Value opObj = ctx->GetVarValue(ins->Name);
     return opObj.sub_slice(fromVal, toVal);
 }
-Value Executor::ExecuteArrayReadWrite(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* where = mScript->GetInstruction(ins->Refs[0]);
+Value Executor::ExecuteArrayReadWrite(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* where = GetInstruction(ins->Refs[0]);
     Value index = Execute(where, ctx);
     Value opObj = ctx->GetVarValue(ins->Name);
     if (ins->OpCode == Instructions::kReadAt) {
         return opObj[index];
     }
-    Instruction* value = mScript->GetInstruction(ins->Refs[1]);
+    const Instruction* value = GetInstruction(ins->Refs[1]);
     Value eleVal = Execute(value, ctx);
     opObj.set_value(index, eleVal);
     ctx->SetVarValue(ins->Name, opObj);
     return opObj;
 }
 
-std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insList,
-                                                scoped_ptr<VMContext> ctx) {
+std::vector<Value> Executor::InstructionToValue(std::vector<const Instruction*> insList,
+                                                scoped_refptr<VMContext> ctx) {
     std::vector<Value> result;
-    std::vector<Instruction*>::iterator iter = insList.begin();
+    std::vector<const Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
         result.push_back(Execute(*iter, ctx));
         iter++;
@@ -496,19 +546,19 @@ std::vector<Value> Executor::InstructionToValue(std::vector<Instruction*> insLis
     return result;
 }
 
-Value Executor::ExecuteSwitchStatement(Instruction* ins, scoped_ptr<VMContext> ctx) {
-    Instruction* value = mScript->GetInstruction(ins->Refs[0]);
-    Instruction* cases = mScript->GetInstruction(ins->Refs[1]);
-    Instruction* defaultBranch = mScript->GetInstruction(ins->Refs[2]);
-    std::vector<Instruction*> case_array = mScript->GetInstructions(cases->Refs);
+Value Executor::ExecuteSwitchStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* value = GetInstruction(ins->Refs[0]);
+    const Instruction* cases = GetInstruction(ins->Refs[1]);
+    const Instruction* defaultBranch = GetInstruction(ins->Refs[2]);
+    std::vector<const Instruction*> case_array = GetInstructions(cases->Refs);
     Value val = Execute(value, ctx);
-    std::vector<Instruction*>::iterator iter = case_array.begin();
+    std::vector<const Instruction*>::iterator iter = case_array.begin();
     bool casehit = false;
     while (iter != case_array.end()) {
-        std::vector<Instruction*> conditions =
-                mScript->GetInstructions(mScript->GetInstruction((*iter)->Refs[0])->Refs);
+        std::vector<const Instruction*> conditions =
+                GetInstructions(GetInstruction((*iter)->Refs[0])->Refs);
         std::vector<Value> condition_values = InstructionToValue(conditions, ctx);
-        Instruction* actions = mScript->GetInstruction((*iter)->Refs[1]);
+        const Instruction* actions = GetInstruction((*iter)->Refs[1]);
         std::vector<Value>::iterator iter2 = condition_values.begin();
         bool found = false;
         while (iter2 != condition_values.end()) {

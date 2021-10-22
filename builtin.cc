@@ -4,7 +4,7 @@
 
 using namespace Interpreter;
 
-Value Println(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value Println(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     std::string result;
     for (std::vector<Value>::iterator iter = values.begin(); iter != values.end(); iter++) {
         result += iter->ToString();
@@ -14,25 +14,25 @@ Value Println(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* v
     return Value();
 }
 
-Value Len(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value Len(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value((long)arg.length());
 }
 
-Value TypeOf(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value TypeOf(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value(arg.TypeName());
 }
 
-Value ToString(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value ToString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value(arg.ToString());
 }
 
-Value Append(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value Append(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     Value to = values.front();
     if (to.Type != ValueType::kArray) {
         throw RuntimeException("first append value must an array");
@@ -46,7 +46,7 @@ Value Append(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm
     return to;
 }
 
-Value OpenFile(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value OpenFile(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     Value path = values.front();
     if (path.Type != ValueType::kString) {
         throw RuntimeException("OpenFile invalid parameter type");
@@ -58,7 +58,7 @@ Value OpenFile(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* 
     return Value(new FileResource(hFile));
 }
 
-Value Read(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value Read(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     Value res = values.front();
     if (res.Type != ValueType::kResource) {
         throw RuntimeException("Read invalid parameter type");
@@ -69,21 +69,21 @@ Value Read(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) 
     return Value();
 }
 
-Value Close(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value Close(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     if (values.size() != 1) {
         throw RuntimeException("Close invalid parameter count");
     }
     Value res = values.front();
     if (res.Type != ValueType::kResource) {
-        throw RuntimeException("Read invalid parameter type");
+        throw RuntimeException("Close invalid parameter type");
     }
     res.resource->Close();
     return Value();
 }
 
-Value Exit(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) {
+Value Exit(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     if (values.size() != 1) {
-        throw RuntimeException("Close invalid parameter count");
+        throw RuntimeException("exit invalid parameter count");
     }
     Value exitCode = values.front();
     if (exitCode.Type != ValueType::kInteger) {
@@ -93,8 +93,24 @@ Value Exit(std::vector<Value>& values, scoped_ptr<VMContext> ctx, Executor* vm) 
     return Value();
 }
 
-int g_builtinMethod_size = 7;
+Value Require(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm){
+    if (values.size() != 1) {
+        throw RuntimeException("require invalid parameter count");
+    }
+    if(!ctx->IsTop()){
+        throw RuntimeException("require must called in top context");
+    }
+    Value name = values.front();
+    if (name.Type != ValueType::kString) {
+        throw RuntimeException("require code parameter type must a integer");
+    }
+    vm->RequireScript(name.bytes,ctx);
+    return Value();
+}
 
-BuiltinMethod g_builtinMethod[7] = {{"exit", Exit},  {"Println", Println},   {"TypeOf", TypeOf},
+int g_builtinMethod_size = 8;
+
+BuiltinMethod g_builtinMethod[8] = {{"exit", Exit},  {"Println", Println},   {"TypeOf", TypeOf},
                                     {"len", Len},    {"ToString", ToString}, {"append", Append},
-                                    {"Close", Close}};
+                                    {"Close", Close},
+                                    {"require",Require}};

@@ -13,7 +13,7 @@ namespace Interpreter {
 
 class Executor;
 
-typedef Value (*RUNTIME_FUNCTION)(std::vector<Value>& values, scoped_ptr<VMContext> ctx,
+typedef Value (*RUNTIME_FUNCTION)(std::vector<Value>& values, scoped_refptr<VMContext> ctx,
                                   Executor* vm);
 
 typedef struct _BuiltinMethod {
@@ -21,35 +21,45 @@ typedef struct _BuiltinMethod {
     RUNTIME_FUNCTION func;
 } BuiltinMethod;
 
+class ExecutorCallback {
+public:
+    virtual scoped_refptr<Script> LoadScript(const char* name) = 0;
+};
+
 class Executor {
 public:
-    Executor();
+    Executor(ExecutorCallback* callback);
 
 public:
-    bool Execute(scoped_ptr<Script> script, std::string& errmsg,bool showWarning=false);
+    bool Execute(scoped_refptr<Script> script, std::string& errmsg, bool showWarning = false);
     void RegisgerFunction(BuiltinMethod methods[], int count);
     Value CallScriptFunction(const std::string& name, std::vector<Value>& value,
-                             scoped_ptr<VMContext> ctx);
+                             scoped_refptr<VMContext> ctx);
+    void RequireScript(const std::string& name, scoped_refptr<VMContext> ctx);
 
 protected:
-    Value Execute(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteList(std::vector<Instruction*> insList, scoped_ptr<VMContext> ctx);
-    Value CallFunction(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteIfStatement(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteForStatement(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteForInStatement(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteArithmeticOperation(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteCreateMap(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteCreateArray(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteSlice(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteArrayReadWrite(Instruction* ins, scoped_ptr<VMContext> ctx);
-    Value ExecuteSwitchStatement(Instruction* ins, scoped_ptr<VMContext> ctx);
+    Value Execute(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteList(std::vector<const Instruction*> insList, scoped_refptr<VMContext> ctx);
+    Value CallFunction(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteForStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteArrayReadWrite(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteSwitchStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     RUNTIME_FUNCTION GetBuiltinMethod(const std::string& name);
-
-    std::vector<Value> InstructionToValue(std::vector<Instruction*> ins, scoped_ptr<VMContext> ctx);
+    const Instruction* GetInstruction(long key);
+    std::vector<const Instruction*> GetInstructions(std::vector<long> keys);
+    Value GetConstValue(long key);
+    std::vector<Value> InstructionToValue(std::vector<const Instruction*> ins,
+                                          scoped_refptr<VMContext> ctx);
 
 protected:
-    scoped_ptr<Script> mScript;
+    ExecutorCallback* mCallback;
+    std::list<scoped_refptr<Script>> mScriptList;
     std::map<std::string, RUNTIME_FUNCTION> mBuiltinMethods;
 };
 } // namespace Interpreter

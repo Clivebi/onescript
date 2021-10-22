@@ -16,11 +16,9 @@ Instruction* Parser::CreateObjectList(Instruction* element) {
     }
     return mScript->NewGroup(element);
 }
-Instruction* Parser::AddObjectToObjectListHead(Instruction* list, Instruction* element) {
-    return mScript->AddGroupToHead(list, element);
-}
+
 Instruction* Parser::AddObjectToObjectList(Instruction* list, Instruction* element) {
-    return mScript->AddGroup(list, element);
+    return mScript->AddToGroup(list, element);
 }
 
 Instruction* Parser::VarDeclarationExpresion(const std::string& name, Instruction* value) {

@@ -8,7 +8,7 @@
 
 namespace Interpreter {
 
-class VMContext:public RefBase {
+class VMContext:public CRefCountedThreadSafe<VMContext> {
 public:
     enum Type {
         File,
@@ -40,6 +40,7 @@ public:
 
     void SetEnableWarning(bool val){mIsEnableWarning = val;}
 
+    bool IsTop(){return mParent == NULL;}
     bool IsExecutedInterupt() { return (mFlags & 0xFF); }
     void CleanContinueFlag() { mFlags &= 0xFE; }
     void BreakExecuted();
@@ -57,8 +58,8 @@ public:
     void SetVarValue(const std::string& name, Value value);
     Value GetVarValue(const std::string& name);
 
-    void AddFunction(Instruction* function);
-    Instruction* GetFunction(const std::string& name);
+    void AddFunction(const Instruction* function);
+    const Instruction* GetFunction(const std::string& name);
 
 protected:
     void LoadBuiltinVar();
@@ -67,7 +68,7 @@ protected:
 
 private:
     std::map<std::string, Value> mVars;
-    std::map<std::string, Instruction*> mFunctions;
+    std::map<std::string, const Instruction*> mFunctions;
 };
 
 } // namespace Interpreter

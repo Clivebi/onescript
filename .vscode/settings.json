@@ -89,6 +89,7 @@
         "cfenv": "cpp",
         "cinttypes": "cpp",
         "filesystem": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "csetjmp": "cpp"
     }
 }

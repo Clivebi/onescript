@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 #include "parser.hpp"
-using Parser=Interpreter::Parser;
 using Instruction= Interpreter::Instruction;
 #include "script.tab.hpp"
 
+#define YY_DECL int yylex(Interpreter::Parser * parser)
 
 
 /* 一个功能性函数-都要加 */
@@ -68,7 +68,7 @@ int yywrap(void)
 
 
 <INITIAL>[A-Za-z_][A-Za-z_0-9]* {
-    yylval.identifier = Interpreter::Parser::current()->CreateString(yytext);
+    yylval.identifier = parser->CreateString(yytext);
     return IDENTIFIER;
 }
 <INITIAL>([1-9][0-9]*)|"0" {
@@ -85,7 +85,7 @@ int yywrap(void)
 }
 
 <INITIAL>\" {
-    Interpreter::Parser::current()->StartScanningString();
+    parser->StartScanningString();
     BEGIN STRING_LITERAL_STATE;
 }
 
@@ -111,17 +111,17 @@ int yywrap(void)
 <COMMENT>.      ;
 
 <STRING_LITERAL_STATE>\"        {
-    yylval.identifier = Interpreter::Parser::current()->FinishScanningString();
+    yylval.identifier = parser->FinishScanningString();
     BEGIN INITIAL;
     return STRING_LITERAL;
 }
 <STRING_LITERAL_STATE>\n        {
-    Interpreter::Parser::current()->AppendToScanningString('\n');
+    parser->AppendToScanningString('\n');
 }
-<STRING_LITERAL_STATE>\\\"      Interpreter::Parser::current()->AppendToScanningString('"');
-<STRING_LITERAL_STATE>\\n       Interpreter::Parser::current()->AppendToScanningString('\n');
-<STRING_LITERAL_STATE>\\t       Interpreter::Parser::current()->AppendToScanningString('\t');
-<STRING_LITERAL_STATE>\\\\      Interpreter::Parser::current()->AppendToScanningString('\\');
-<STRING_LITERAL_STATE>.         Interpreter::Parser::current()->AppendToScanningString(yytext[0]);
+<STRING_LITERAL_STATE>\\\"      parser->AppendToScanningString('"');
+<STRING_LITERAL_STATE>\\n       parser->AppendToScanningString('\n');
+<STRING_LITERAL_STATE>\\t       parser->AppendToScanningString('\t');
+<STRING_LITERAL_STATE>\\\\      parser->AppendToScanningString('\\');
+<STRING_LITERAL_STATE>.         parser->AppendToScanningString(yytext[0]);
 
 %%
