@@ -7,7 +7,7 @@
 #include "script.hpp"
 
 namespace Interpreter {
-class Parser: public CRefCountedThreadSafe<Parser> {
+class Parser : public CRefCountedThreadSafe<Parser> {
 protected:
     scoped_refptr<Script> mScript;
 
@@ -17,14 +17,10 @@ protected:
     bool mLogInstruction;
 
 public:
-    Parser():mScript(NULL){
+    Parser() : mScript(NULL), mLogInstruction(0), mStringHolder(), mScanningString() {}
+    ~Parser() { Finish(); }
 
-    }
-    ~Parser() {
-        Finish();
-    }
-
-    void Start() { mScript = new Script(); }
+    void Start(std::string name) { mScript = new Script(name); }
     scoped_refptr<Script> Finish() {
         scoped_refptr<Script> ret = mScript;
         mScript = NULL;

@@ -1,5 +1,8 @@
 #include <stdio.h>
 
+#include <fstream>
+
+
 #include "parser.hpp"
 #include "vm.hpp"
 using namespace Interpreter;
@@ -37,6 +40,8 @@ char* read_file_content(const char* path, int* file_size) {
     return content;
 }
 
+
+
 scoped_refptr<Script> ParserFile(std::string path) {
     YY_BUFFER_STATE bp;
     char* context;
@@ -48,7 +53,7 @@ scoped_refptr<Script> ParserFile(std::string path) {
     scoped_refptr<Parser> parser = make_scoped_refptr(new Parser());
     bp = yy_scan_buffer(context, file_size + 2);
     yy_switch_to_buffer(bp);
-    parser->Start();
+    parser->Start(split(path,'/').back());
     int error = yyparse(parser.get());
     yy_flush_buffer(bp);
     yy_delete_buffer(bp);
@@ -77,7 +82,6 @@ int main(int argc, char* argv[]) {
     folder = folder.substr(0, folder.rfind('/') + 1);
     scoped_refptr<Script> script = ParserFile(argv[1]);
     if (script != NULL) {
-        script->RelocateInstruction(1000, 1000);
         DefaultExecutorCallback callback(folder);
         Executor exe(&callback);
         std::string err = "";

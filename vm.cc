@@ -41,19 +41,28 @@ RUNTIME_FUNCTION Executor::GetBuiltinMethod(const std::string& name) {
 }
 
 void Executor::RequireScript(const std::string& name, scoped_refptr<VMContext> ctx) {
+    std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
+    while (iter != mScriptList.end()) {
+        if ((*iter)->Name == name) {
+            return;
+        }
+        iter++;
+    }
+
     if (mCallback) {
         scoped_refptr<Script> required = mCallback->LoadScript(name.c_str());
         if (required.get() == NULL) {
             throw RuntimeException("load script <" + name + "> failed");
         }
         scoped_refptr<Script> last = mScriptList.back();
-        required->RelocateInstruction(10000, 10000);
+        required->RelocateInstruction(last->GetNextInstructionKey() + 100,
+                                      last->GetNextConstKey() + 100);
         mScriptList.push_back(required);
         Execute(required->EntryPoint, ctx);
     }
 }
 
-const Instruction* Executor::GetInstruction(long key) {
+const Instruction* Executor::GetInstruction(Instruction::keyType key) {
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
     while (iter != mScriptList.end()) {
         if ((*iter)->IsContainInstruction(key)) {
@@ -62,11 +71,11 @@ const Instruction* Executor::GetInstruction(long key) {
         iter++;
     }
     char buf[16] = {0};
-    snprintf(buf, 16, "%ld", key);
+    snprintf(buf, 16, "%d", key);
     throw RuntimeException(std::string("unknown instruction key:") + buf);
 }
 
-std::vector<const Instruction*> Executor::GetInstructions(std::vector<long> keys) {
+std::vector<const Instruction*> Executor::GetInstructions(std::vector<Instruction::keyType> keys) {
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
     while (iter != mScriptList.end()) {
         if ((*iter)->IsContainInstruction(keys[0])) {
@@ -75,11 +84,11 @@ std::vector<const Instruction*> Executor::GetInstructions(std::vector<long> keys
         iter++;
     }
     char buf[16] = {0};
-    snprintf(buf, 16, "%ld", keys[0]);
+    snprintf(buf, 16, "%d", keys[0]);
     throw RuntimeException(std::string("unknown instruction key:") + buf);
 }
 
-Value Executor::GetConstValue(long key) {
+Value Executor::GetConstValue(Instruction::keyType key) {
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
     while (iter != mScriptList.end()) {
         if ((*iter)->IsContainConst(key)) {

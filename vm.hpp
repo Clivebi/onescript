@@ -51,9 +51,9 @@ protected:
     Value ExecuteArrayReadWrite(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteSwitchStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     RUNTIME_FUNCTION GetBuiltinMethod(const std::string& name);
-    const Instruction* GetInstruction(long key);
-    std::vector<const Instruction*> GetInstructions(std::vector<long> keys);
-    Value GetConstValue(long key);
+    const Instruction* GetInstruction(Instruction::keyType key);
+    std::vector<const Instruction*> GetInstructions(std::vector<Instruction::keyType> keys);
+    Value GetConstValue(Instruction::keyType key);
     std::vector<Value> InstructionToValue(std::vector<const Instruction*> ins,
                                           scoped_refptr<VMContext> ctx);
 

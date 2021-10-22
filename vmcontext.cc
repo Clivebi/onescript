@@ -157,7 +157,7 @@ void VMContext::AddFunction(const Instruction* obj) {
     if(obj->Name == "exit"){
         throw RuntimeException("exit function can't overwrite");
     }
-    LOG("add function:"+obj->Name);
+    //LOG("add function:"+obj->Name);
     std::map<std::string, const Instruction*>::iterator iter = mFunctions.find(obj->Name);
     if (iter == mFunctions.end()) {
         mFunctions[obj->Name] = obj;

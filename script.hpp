@@ -6,77 +6,112 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
 #include "exception.hpp"
 #include "value.hpp"
 
 namespace Interpreter {
 namespace Instructions {
-const int kNop = 0;
+typedef unsigned char Type;
+const Type kNop = 0;
 #define CODE_BASE (0)
-const int kConst = CODE_BASE + 1;
-const int kNewVar = CODE_BASE + 2;
-const int kReadVar = CODE_BASE + 3;
-const int kWriteVar = CODE_BASE + 4;
-const int kNewFunction = CODE_BASE + 5;
-const int kCallFunction = CODE_BASE + 6;
-const int kReadAt = CODE_BASE + 7;
-const int kWriteAt = CODE_BASE + 8;
-const int kGroup = CODE_BASE + 9;
-const int kContitionExpression = CODE_BASE + 10;
-const int kIFStatement = CODE_BASE + 11;
-const int kRETURNStatement = CODE_BASE + 12;
-const int kFORStatement = CODE_BASE + 13;
-const int kCONTINUEStatement = CODE_BASE + 14;
-const int kBREAKStatement = CODE_BASE + 15;
-const int kCreateMap = CODE_BASE + 16;
-const int kCreateArray = CODE_BASE + 17;
-const int kSlice = CODE_BASE + 18;
-const int kForInStatement = CODE_BASE + 19;
-const int kSwitchCaseStatement = CODE_BASE + 20;
+const Type kConst = CODE_BASE + 1;
+const Type kNewVar = CODE_BASE + 2;
+const Type kReadVar = CODE_BASE + 3;
+const Type kWriteVar = CODE_BASE + 4;
+const Type kNewFunction = CODE_BASE + 5;
+const Type kCallFunction = CODE_BASE + 6;
+const Type kReadAt = CODE_BASE + 7;
+const Type kWriteAt = CODE_BASE + 8;
+const Type kGroup = CODE_BASE + 9;
+const Type kContitionExpression = CODE_BASE + 10;
+const Type kIFStatement = CODE_BASE + 11;
+const Type kRETURNStatement = CODE_BASE + 12;
+const Type kFORStatement = CODE_BASE + 13;
+const Type kCONTINUEStatement = CODE_BASE + 14;
+const Type kBREAKStatement = CODE_BASE + 15;
+const Type kCreateMap = CODE_BASE + 16;
+const Type kCreateArray = CODE_BASE + 17;
+const Type kSlice = CODE_BASE + 18;
+const Type kForInStatement = CODE_BASE + 19;
+const Type kSwitchCaseStatement = CODE_BASE + 20;
 
-const int kArithmeticOP = 0x100;
-const int kADD = kArithmeticOP + 1;
-const int kSUB = kArithmeticOP + 2;
-const int kMUL = kArithmeticOP + 3;
-const int kDIV = kArithmeticOP + 4;
-const int kMOD = kArithmeticOP + 5;
-const int kGT = kArithmeticOP + 6;
-const int kGE = kArithmeticOP + 7;
-const int kLT = kArithmeticOP + 8;
-const int kLE = kArithmeticOP + 9;
-const int kEQ = kArithmeticOP + 10;
-const int kNE = kArithmeticOP + 11;
-const int kNOT = kArithmeticOP + 12;
-const int kMAXArithmeticOP = kArithmeticOP + 12;
+const Type kArithmeticOP = 50;
+const Type kADD = kArithmeticOP + 1;
+const Type kSUB = kArithmeticOP + 2;
+const Type kMUL = kArithmeticOP + 3;
+const Type kDIV = kArithmeticOP + 4;
+const Type kMOD = kArithmeticOP + 5;
+const Type kGT = kArithmeticOP + 6;
+const Type kGE = kArithmeticOP + 7;
+const Type kLT = kArithmeticOP + 8;
+const Type kLE = kArithmeticOP + 9;
+const Type kEQ = kArithmeticOP + 10;
+const Type kNE = kArithmeticOP + 11;
+const Type kNOT = kArithmeticOP + 12;
+const Type kMAXArithmeticOP = kArithmeticOP + 12;
 
-const int kADDWrite = 0x201;
-const int kSUBWrite = 0x202;
-const int kMULWrite = 0x203;
-const int kDIVWrite = 0x204;
-const int kINCWrite = 0x205;
-const int kDECWrite = 0x206;
+const Type kADDWrite = 71;
+const Type kSUBWrite = 72;
+const Type kMULWrite = 73;
+const Type kDIVWrite = 74;
+const Type kINCWrite = 75;
+const Type kDECWrite = 76;
 }; // namespace Instructions
 
 class Instruction {
 public:
-    int OpCode;
-    long key;
+    typedef int keyType;
+    Instructions::Type OpCode;
+    keyType key;
     std::string Name;
-    std::vector<long> Refs;
+    std::vector<keyType> Refs;
+
+    void WriteToStream(std::ostream& o) {
+        o << OpCode;
+        o << key;
+        o << (unsigned char)Name.size();
+        o.write(Name.c_str(), Name.size());
+        o << (int)Refs.size();
+        std::vector<keyType>::iterator iter = Refs.begin();
+        while (iter != Refs.end()) {
+            o << *iter;
+            iter++;
+        }
+    }
+
+    void ReadFromStream(std::iostream& stream) {
+        char name_size = 0;
+        int count = 0;
+        keyType value = 0;
+        stream >> OpCode;
+        stream >> key;
+        stream >> name_size;
+        char* buf = new char[name_size];
+        stream.read(buf, name_size);
+        Name.assign(buf, name_size);
+        delete[] buf;
+        stream >> count;
+        for (int i = 0; i < count; i++) {
+            stream >> value;
+            Refs.push_back(value);
+        }
+    }
 
 public:
-    Instruction() : OpCode(Instructions::kNop),key(0) {}
-    Instruction(Instruction* one):key(0) { Refs.push_back(one->key); }
-    Instruction(Instruction* one, Instruction* tow):key(0) {
+    Instruction() : OpCode(Instructions::kNop), key(0) {}
+    Instruction(Instruction* one) : key(0) { Refs.push_back(one->key); }
+    Instruction(Instruction* one, Instruction* tow) : key(0) {
         Refs.push_back(one->key);
         Refs.push_back(tow->key);
     }
-    Instruction(Instruction* one, Instruction* tow, Instruction* three):key(0) {
+    Instruction(Instruction* one, Instruction* tow, Instruction* three) : key(0) {
         Refs.push_back(one->key);
         Refs.push_back(tow->key);
         Refs.push_back(three->key);
     }
-    Instruction(Instruction* one, Instruction* tow, Instruction* three,Instruction*four):key(0) {
+    Instruction(Instruction* one, Instruction* tow, Instruction* three, Instruction* four)
+            : key(0) {
         Refs.push_back(one->key);
         Refs.push_back(tow->key);
         Refs.push_back(three->key);
@@ -143,8 +178,8 @@ public:
 class Script : public CRefCountedThreadSafe<Script> {
 public:
     Instruction* EntryPoint;
-
-    explicit Script() {
+    std::string  Name;
+    explicit Script(std::string name):Name(name) {
         EntryPoint = NULL;
         mInstructionKey = 1;
         mConstKey = 1;
@@ -153,7 +188,8 @@ public:
         mConstBase = 0;
     }
     ~Script() {
-        for (std::map<long, Instruction*>::iterator iter = mInstructionTable.begin();
+        for (std::map<Instruction::keyType, Instruction*>::iterator iter =
+                     mInstructionTable.begin();
              iter != mInstructionTable.end(); iter++) {
             delete (iter->second);
         }
@@ -162,42 +198,45 @@ public:
     }
 
 protected:
-    long mInstructionKey;
-    long mConstKey;
-    long mInstructionBase;
-    long mConstBase;
-    std::map<long, Instruction*> mInstructionTable;
-    std::map<long, Value> mConstTable;
+    Instruction::keyType mInstructionKey;
+    Instruction::keyType mConstKey;
+    Instruction::keyType mInstructionBase;
+    Instruction::keyType mConstBase;
+    std::map<Instruction::keyType, Instruction*> mInstructionTable;
+    std::map<Instruction::keyType, Value> mConstTable;
 
 public:
-    void RelocateInstruction(long newbase, long newConstbase) {
-        if(mInstructionBase != 0 || mConstBase != 0){
+    void RelocateInstruction(Instruction::keyType newbase, Instruction::keyType newConstbase) {
+        if (mInstructionBase != 0 || mConstBase != 0) {
             throw RuntimeException("script can only Relocate once");
         }
-        for (std::map<long, Instruction*>::iterator iter = mInstructionTable.begin();
+        for (std::map<Instruction::keyType, Instruction*>::iterator iter =
+                     mInstructionTable.begin();
              iter != mInstructionTable.end(); iter++) {
-             Instruction* ptr = iter->second;
-             if(ptr->OpCode == Instructions::kConst){
-                 assert(ptr->Refs[0] < mConstKey);
-                 ptr->Refs[0] = ptr->Refs[0]+newConstbase;
-             }else{
-                 for(size_t i =0; i< ptr->Refs.size();i++){
-                     assert(ptr->Refs[i] < mInstructionKey);
-                     ptr->Refs[i] = ptr->Refs[i]+newbase;
-                 }
-             }
-             ptr->key += newbase;
+            Instruction* ptr = iter->second;
+            if (ptr->OpCode == Instructions::kConst) {
+                assert(ptr->Refs[0] < mConstKey);
+                ptr->Refs[0] = ptr->Refs[0] + newConstbase;
+            } else {
+                for (size_t i = 0; i < ptr->Refs.size(); i++) {
+                    assert(ptr->Refs[i] < mInstructionKey);
+                    ptr->Refs[i] = ptr->Refs[i] + newbase;
+                }
+            }
+            ptr->key += newbase;
         }
         mInstructionBase = newbase;
         mConstBase = newConstbase;
     }
 
-    bool IsContainInstruction(long key) {
+    bool IsContainInstruction(Instruction::keyType key) {
         return key >= mInstructionBase && key < GetNextInstructionKey();
     }
-    bool IsContainConst(long key) { return key >= mConstBase && key < GetNextConstKey(); }
-    long GetNextInstructionKey() { return mInstructionBase + mInstructionKey; }
-    long GetNextConstKey() { return mConstBase + mConstKey; }
+    bool IsContainConst(Instruction::keyType key) {
+        return key >= mConstBase && key < GetNextConstKey();
+    }
+    Instruction::keyType GetNextInstructionKey() { return mInstructionBase + mInstructionKey; }
+    Instruction::keyType GetNextConstKey() { return mConstBase + mConstKey; }
 
 public:
     Instruction* NewGroup(Instruction* element) {
@@ -242,8 +281,9 @@ public:
         mInstructionTable[ins->key] = ins;
         return ins;
     }
-    Instruction* NewInstruction(Instruction* one, Instruction* tow, Instruction* three,Instruction*four) {
-        Instruction* ins = new Instruction(one, tow, three,four);
+    Instruction* NewInstruction(Instruction* one, Instruction* tow, Instruction* three,
+                                Instruction* four) {
+        Instruction* ins = new Instruction(one, tow, three, four);
         ins->key = mInstructionKey;
         mInstructionKey++;
         mInstructionTable[ins->key] = ins;
@@ -252,7 +292,7 @@ public:
     //TODO use const value pool
     Instruction* NewConst(const std::string& value) {
         Value val = Value(value);
-        long key = mConstKey;
+        Instruction::keyType key = mConstKey;
         mConstKey++;
         mConstTable[key] = val;
         Instruction* ins = NewInstruction();
@@ -262,7 +302,7 @@ public:
     }
     Instruction* NewConst(long value) {
         Value val = Value(value);
-        long key = mConstKey;
+        Instruction::keyType key = mConstKey;
         mConstKey++;
         mConstTable[key] = val;
         Instruction* ins = NewInstruction();
@@ -272,7 +312,7 @@ public:
     }
     Instruction* NewConst(double value) {
         Value val = Value(value);
-        long key = mConstKey;
+        Instruction::keyType key = mConstKey;
         mConstKey++;
         mConstTable[key] = val;
         Instruction* ins = NewInstruction();
@@ -281,14 +321,17 @@ public:
         return ins;
     }
 
-    Value GetConstValue(long key) { return mConstTable[key-mConstBase]; }
+    Value GetConstValue(Instruction::keyType key) { return mConstTable[key - mConstBase]; }
 
-    const Instruction* GetInstruction(long key) { return mInstructionTable[key-mInstructionBase]; }
+    const Instruction* GetInstruction(Instruction::keyType key) {
+        return mInstructionTable[key - mInstructionBase];
+    }
 
-    std::vector<const Instruction*> GetInstructions(std::vector<long> keys) {
+    std::vector<const Instruction*> GetInstructions(std::vector<Instruction::keyType> keys) {
         std::vector<const Instruction*> result;
-        for (std::vector<long>::iterator iter = keys.begin(); iter != keys.end(); iter++) {
-            result.push_back(mInstructionTable[*iter-mInstructionBase]);
+        for (std::vector<Instruction::keyType>::iterator iter = keys.begin(); iter != keys.end();
+             iter++) {
+            result.push_back(mInstructionTable[*iter - mInstructionBase]);
         }
         return result;
     }
@@ -312,5 +355,17 @@ public:
         }
         return stream.str();
     }
+    void WriteToStream(std::ostream& o) {
+        o << EntryPoint->key;
+        o << (long)mInstructionTable.size();
+        o << (long)mConstTable.size();
+        for (std::map<Instruction::keyType, Instruction*>::iterator iter =
+                     mInstructionTable.begin();
+             iter != mInstructionTable.end(); iter++) {
+            iter->second->WriteToStream(o);
+        }
+    }
+
+    void ReadFromStream(std::iostream& stream) {}
 };
 } // namespace Interpreter
