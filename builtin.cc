@@ -236,3 +236,12 @@ BuiltinMethod g_builtinMethod[11] = {{"exit", Exit},
                                      {"Println", Println},
                                      {"ToString", ToString},
                                      {"BytesFromHexString", BytesFromHexString}};
+
+bool IsFunctionOverwriteEnabled(const std::string& name) {
+    for (int i = 0; i < 8; i++) {
+        if (g_builtinMethod[i].name == name) {
+            return false;
+        }
+    }
+    return true;
+}

@@ -288,26 +288,28 @@ public:
         if (IsArithmeticOperationEnabled(right)) {
             return ToFloat() == right.ToFloat();
         }
-        if (Type == ValueType::kString && right.Type == ValueType::kString) {
-            return bytes == right.bytes;
+        if (Type != right.Type) {
+            return false;
         }
-        if (Type == ValueType::kBytes && right.Type == ValueType::kBytes) {
+        switch (Type) {
+        case ValueType::kString:
+        case ValueType::kBytes:
             return bytes == right.bytes;
+        case ValueType::kNULL:
+            return true;
+        case ValueType::kResource:
+            return resource.get() == right.resource.get();
+        case ValueType::kArray:
+            return _array == right._array;
+        case ValueType::kMap:
+            return _map == right._map;
+        default:
+            return false;
         }
-        return false;
     }
 
     bool operator!=(const Value& right) const {
-        if (IsArithmeticOperationEnabled(right)) {
-            return ToFloat() != right.ToFloat();
-        }
-        if (Type == ValueType::kString && right.Type == ValueType::kString) {
-            return bytes != right.bytes;
-        }
-        if (Type == ValueType::kBytes && right.Type == ValueType::kBytes) {
-            return bytes != right.bytes;
-        }
-        return true;
+        return !(*this == right);
     }
 
     Value operator|(const Value& right) const {
@@ -425,7 +427,7 @@ public:
         throw RuntimeException("this value type not have length ");
     }
 
-    Value sub_slice(const Value& f,const Value& t) {
+    Value sub_slice(const Value& f, const Value& t) {
         size_t from = 0, to = 0;
         if (Type != ValueType::kString && Type != ValueType::kArray) {
             throw RuntimeException("the value type must slice able");
@@ -566,7 +568,7 @@ public:
             snprintf(buffer, 16, "%ld", Integer);
             return buffer;
         case ValueType::kNULL:
-            return "NULL";
+            return "nil";
         case ValueType::kFloat:
             snprintf(buffer, 16, "%f", Float);
             return buffer;

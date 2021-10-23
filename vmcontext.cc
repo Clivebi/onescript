@@ -1,4 +1,5 @@
 #include "vmcontext.hpp"
+bool IsFunctionOverwriteEnabled(const std::string& name);
 namespace Interpreter {
 
 struct BuiltinValue {
@@ -9,12 +10,12 @@ struct BuiltinValue {
 BuiltinValue g_builtinVar[] = {
         {"false", Value(0l)},
         {"true", Value(1l)},
+        {"nil", Value()},
 };
-
 
 #define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
 
-VMContext::VMContext(Type type, VMContext* Parent) : mFlags(0),mIsEnableWarning(false) {
+VMContext::VMContext(Type type, VMContext* Parent) : mFlags(0), mIsEnableWarning(false) {
     mParent = Parent;
     mType = type;
     mDeepth = 0;
@@ -24,8 +25,7 @@ VMContext::VMContext(Type type, VMContext* Parent) : mFlags(0),mIsEnableWarning(
     }
     LoadBuiltinVar();
 }
-VMContext::~VMContext() {
-}
+VMContext::~VMContext() {}
 
 bool VMContext::IsBuiltinVarName(const std::string& name) {
     for (int i = 0; i < COUNT_OF(g_builtinVar); i++) {
@@ -95,8 +95,8 @@ void VMContext::AddVar(const std::string& name) {
     if (!IsBuiltinVarName(name)) {
         throw RuntimeException("variable name is builtin :" + name);
     }
-    if(mIsEnableWarning && IsShadowName(name)){
-        LOG("variable name shadow :"+name);
+    if (mIsEnableWarning && IsShadowName(name)) {
+        LOG("variable name shadow :" + name);
     }
     std::map<std::string, Value>::iterator iter = mVars.find(name);
     if (iter == mVars.end()) {
@@ -119,14 +119,14 @@ void VMContext::SetVarValue(const std::string& name, Value value) {
         }
         ctx = ctx->mParent;
     }
-    if(mIsEnableWarning){
-         LOG("variable <" + name + "> not found, so new one.");
+    if (mIsEnableWarning) {
+        LOG("variable <" + name + "> not found, so new one.");
     }
     mVars[name] = value;
 }
 
-bool VMContext::IsShadowName(const std::string& name){
-   VMContext* ctx = this;
+bool VMContext::IsShadowName(const std::string& name) {
+    VMContext* ctx = this;
     while (ctx != NULL) {
         std::map<std::string, Value>::iterator iter = ctx->mVars.find(name);
         if (iter != ctx->mVars.end()) {
@@ -154,7 +154,7 @@ void VMContext::AddFunction(const Instruction* obj) {
     if (mType != File) {
         throw RuntimeException("function declaration must in the top block name:" + obj->Name);
     }
-    if(obj->Name == "exit"){
+    if (!IsFunctionOverwriteEnabled(obj->Name)) {
         throw RuntimeException("exit function can't overwrite");
     }
     //LOG("add function:"+obj->Name);
