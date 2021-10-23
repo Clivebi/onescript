@@ -25,21 +25,31 @@ void yyerror(Interpreter::Parser * parser,const char *s);
         EQ NE GT GE LT LE LP RP LC RC SEMICOLON IDENTIFIER 
         BREAK CONTINUE RETURN COMMA STRING_LITERAL COLON ADDASSIGN SUBASSIGN
         MULASSIGN DIVASSIGN INC DEC NOT LB RB IN SWITCH CASE DEFAULT
+        BOR BAND BXOR BNG LSHIFT RSHIFT  BORASSIGN BANDASSIGN BXORASSIGN 
+        LSHIFTASSIGN RSHIFTASSIGN OR AND
 
 %token <value_integer> INT_LITERAL
 %token <value_double>  DOUBLE_LITERAL
 
+%left  COMMA
 %right ASSIGN ADDASSIGN SUBASSIGN DIVASSIGN MULASSIGN
+       BORASSIGN BANDASSIGN BXORASSIGN LSHIFTASSIGN RSHIFTASSIGN
+%left OR
+%left AND 
+%left BOR
+%left BXOR
+%left BAND
+%left NE
+%left EQ 
 
 
-
-%left  EQ NE GT GE LT LE 
+%left  GT GE LT LE 
+%left  LSHIFT RSHIFT
 %left  ADD SUB
 %left  MUL DIV MOD
-%left  COMMA
 %left  COLON
 
-%right NOT INC DEC
+%right NOT INC DEC BNG
 %left LP RP
 
 
@@ -339,7 +349,7 @@ value_expression: const_value
         {
                 $$=$1;
         }
-        |LP math_expression RP
+        |LP value_expression RP
         {
                 $$=$2;
         }
@@ -382,6 +392,30 @@ math_expression: value_expression ADD value_expression
         {
                 $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kMOD);
         }
+        |value_expression BAND value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kBAND);
+        }
+        |value_expression BOR value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kBOR);
+        }
+        |value_expression BXOR value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kBXOR);
+        }
+        |BNG value_expression
+        {
+                $$=parser->CreateArithmeticOperation($2,NULL,Interpreter::Instructions::kBNG);
+        }
+        |value_expression LSHIFT value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kLSHIFT);
+        }
+        |value_expression RSHIFT value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kRSHIFT);
+        }
         ;
 
 compare_expression:value_expression EQ value_expression
@@ -412,6 +446,14 @@ compare_expression:value_expression EQ value_expression
         {
                 $$=parser->CreateArithmeticOperation($2,NULL,Interpreter::Instructions::kNOT);
         }
+        |value_expression OR value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kOR);
+        }
+        |value_expression AND value_expression
+        {
+                $$=parser->CreateArithmeticOperation($1,$3,Interpreter::Instructions::kAND);
+        }
         ;
 
 assign_expression: IDENTIFIER ASSIGN value_expression
@@ -441,6 +483,26 @@ assign_expression: IDENTIFIER ASSIGN value_expression
         |IDENTIFIER DEC 
         {
                 $$=parser->VarUpdateExpression($1,NULL,Interpreter::Instructions::kDECWrite);
+        }
+        |IDENTIFIER BANDASSIGN value_expression
+        {
+                $$=parser->VarUpdateExpression($1,$3,Interpreter::Instructions::kBANDWrite);
+        }
+        |IDENTIFIER BORASSIGN value_expression
+        {
+                $$=parser->VarUpdateExpression($1,$3,Interpreter::Instructions::kBORWrite);
+        }
+        |IDENTIFIER BXORASSIGN value_expression
+        {
+                $$=parser->VarUpdateExpression($1,$3,Interpreter::Instructions::kBXORWrite);
+        }
+        |IDENTIFIER LSHIFTASSIGN value_expression
+        {
+                $$=parser->VarUpdateExpression($1,$3,Interpreter::Instructions::kLSHIFTWrite);
+        }
+        |IDENTIFIER RSHIFTASSIGN value_expression
+        {
+                $$=parser->VarUpdateExpression($1,$3,Interpreter::Instructions::kRSHIFTWrite);
         }
         ;
 

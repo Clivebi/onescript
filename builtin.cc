@@ -32,41 +32,62 @@ Value ToString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executo
     return Value(arg.ToString());
 }
 
-Value Append(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
-    Value to = values.front();
-    if (to.Type != ValueType::kArray) {
-        throw RuntimeException("first append value must an array");
-    }
-    std::vector<Value>::iterator iter = values.begin();
-    iter++;
+bool IsIntegerArray(const std::vector<Value>& values) {
+    std::vector<Value>::const_iterator iter = values.begin();
     while (iter != values.end()) {
-        to._array.push_back(*iter);
+        if (iter->Type != ValueType::kInteger) {
+            return false;
+        }
+
         iter++;
     }
-    return to;
+    return true;
 }
 
-Value OpenFile(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
-    Value path = values.front();
-    if (path.Type != ValueType::kString) {
-        throw RuntimeException("OpenFile invalid parameter type");
+void AppendIntegerArrayToBytes(Value& val, const std::vector<Value>& values) {
+    std::vector<Value>::const_iterator iter = values.begin();
+    while (iter != values.end()) {
+        val.bytes.append(1, (unsigned char)iter->Integer);
+        iter++;
     }
-    FILE* hFile = fopen(path.bytes.c_str(), "r");
-    if (hFile == NULL) {
-        return Value();
-    }
-    return Value(new FileResource(hFile));
 }
 
-Value Read(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
-    Value res = values.front();
-    if (res.Type != ValueType::kResource) {
-        throw RuntimeException("Read invalid parameter type");
+Value Append(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+    Value to = values.front();
+    if (to.Type == ValueType::kArray) {
+        std::vector<Value>::iterator iter = values.begin();
+        iter++;
+        while (iter != values.end()) {
+            to._array.push_back(*iter);
+            iter++;
+        }
+        return to;
     }
-    if (!res.resource->IsAvaliable()) {
-        throw RuntimeException("Read resource not avaliable (may be closed)");
+    if (to.Type == ValueType::kBytes) {
+        std::vector<Value>::iterator iter = values.begin();
+        iter++;
+        while (iter != values.end()) {
+            switch (iter->Type) {
+            case ValueType::kBytes:
+                to.bytes += iter->bytes;
+                break;
+            case ValueType::kInteger:
+                to.bytes.append(1, (unsigned char)iter->Integer);
+                break;
+            case ValueType::kArray:
+                if (!IsIntegerArray(iter->_array)) {
+                    throw RuntimeException("only Integer Array can append to bytes");
+                }
+                AppendIntegerArrayToBytes(to, iter->_array);
+                break;
+            default:
+                throw RuntimeException("some value can't append to bytes");
+            }
+            iter++;
+        }
+        return to;
     }
-    return Value();
+    throw RuntimeException("first append value must an array or bytes");
 }
 
 Value Close(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
@@ -93,24 +114,125 @@ Value Exit(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* v
     return Value();
 }
 
-Value Require(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm){
+Value Require(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
     if (values.size() != 1) {
         throw RuntimeException("require invalid parameter count");
     }
-    if(!ctx->IsTop()){
+    if (!ctx->IsTop()) {
         throw RuntimeException("require must called in top context");
     }
     Value name = values.front();
     if (name.Type != ValueType::kString) {
         throw RuntimeException("require code parameter type must a integer");
     }
-    vm->RequireScript(name.bytes,ctx);
+    vm->RequireScript(name.bytes, ctx);
     return Value();
 }
 
-int g_builtinMethod_size = 8;
+Value MakeBytes(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+    if (values.size() == 0) {
+        return Value::make_bytes("");
+    }
+    if (values.size() == 1) {
+        if (values[0].Type == ValueType::kString || values[0].Type == ValueType::kBytes) {
+            return Value::make_bytes(values[0].bytes);
+        }
+        if (values[0].Type == ValueType::kArray) {
+            if (!IsIntegerArray(values[0]._array)) {
+                throw RuntimeException("make bytes must use Integer Array");
+            }
+            Value ret = Value::make_bytes("");
+            AppendIntegerArrayToBytes(ret, values[0]._array);
+            return ret;
+        }
+    }
+    if (!IsIntegerArray(values)) {
+        throw RuntimeException("make bytes must use Integer");
+    }
+    Value ret = Value::make_bytes("");
+    AppendIntegerArrayToBytes(ret, values);
+    return ret;
+}
 
-BuiltinMethod g_builtinMethod[8] = {{"exit", Exit},  {"Println", Println},   {"TypeOf", TypeOf},
-                                    {"len", Len},    {"ToString", ToString}, {"append", Append},
-                                    {"Close", Close},
-                                    {"require",Require}};
+Value MakeString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+    if (values.size() == 0) {
+        return Value("");
+    }
+    if (values.size() == 1) {
+        if (values[0].Type == ValueType::kString || values[0].Type == ValueType::kBytes) {
+            return Value(values[0].bytes);
+        }
+        if (values[0].Type == ValueType::kFloat || values[0].Type == ValueType::kInteger) {
+            return Value(values[0].ToString());
+        }
+        if (values[0].Type == ValueType::kArray) {
+            if (!IsIntegerArray(values[0]._array)) {
+                throw RuntimeException("convert to string must use Integer Array");
+            }
+            Value ret = Value::make_bytes("");
+            AppendIntegerArrayToBytes(ret, values[0]._array);
+            ret.Type = ValueType::kString;
+            return ret;
+        }
+    }
+    if (!IsIntegerArray(values)) {
+        throw RuntimeException("convert to string must use Integer Array or Bytes");
+    }
+    Value ret = Value::make_bytes("");
+    AppendIntegerArrayToBytes(ret, values);
+    ret.Type = ValueType::kString;
+    return ret;
+}
+
+bool IsHexChar(char c) {
+    if (c >= '0' && c <= '9') {
+        return true;
+    }
+    if (c >= 'a' && c <= 'f') {
+        return true;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return true;
+    }
+    return false;
+}
+
+Value BytesFromHexString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+    if (values.size() != 1) {
+        throw RuntimeException("BytesFromHexString invalid parameter count");
+    }
+    Value& arg = values.front();
+    if (arg.Type != ValueType::kString) {
+        throw RuntimeException("BytesFromHexString invalid parameter type");
+    }
+    if (arg.length() % 2 || arg.length() == 0) {
+        throw RuntimeException("BytesFromHexString string length must be a multiple of 2");
+    }
+    size_t i = 0;
+    char buf[3] = {0};
+    std::string result = "";
+    for (; i < arg.bytes.size(); i += 2) {
+        buf[0] = arg.bytes[i];
+        buf[1] = arg.bytes[i + 1];
+        if (!IsHexChar(buf[0]) || !IsHexChar(buf[1])) {
+            throw RuntimeException("BytesFromHexString is not a valid hex string");
+        }
+        unsigned char val = strtol(buf, NULL, 16);
+        result.append(1, val);
+    }
+    return Value::make_bytes(result);
+}
+
+int g_builtinMethod_size = 11;
+
+BuiltinMethod g_builtinMethod[11] = {{"exit", Exit},
+                                     {"len", Len},
+                                     {"append", Append},
+                                     {"require", Require},
+                                     {"bytes", MakeBytes},
+                                     {"string", MakeString},
+                                     {"close", Close},
+                                     {"typeof", TypeOf},
+                                     {"Println", Println},
+                                     {"ToString", ToString},
+                                     {"BytesFromHexString", BytesFromHexString}};

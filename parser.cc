@@ -77,6 +77,9 @@ Instruction* Parser::CreateConst(double value) {
 
 Instruction* Parser::CreateFunction(const std::string& name, Instruction* formalParameters,
                                     Instruction* body) {
+    if(formalParameters == NULL){
+        formalParameters = NULLObject();
+    }
     Instruction* obj = mScript->NewInstruction(formalParameters, body);
     obj->OpCode = Instructions::kNewFunction;
     obj->Name = name;
@@ -87,6 +90,9 @@ Instruction* Parser::CreateFunction(const std::string& name, Instruction* formal
 }
 
 Instruction* Parser::CreateFunctionCall(const std::string& name, Instruction* actualParameters) {
+    if(actualParameters == NULL){
+        actualParameters = NULLObject();
+    }
     Instruction* obj = mScript->NewInstruction(actualParameters);
     obj->OpCode = Instructions::kCallFunction;
     obj->Name = name;

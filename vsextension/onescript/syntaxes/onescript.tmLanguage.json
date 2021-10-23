@@ -1,0 +1,32 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "one script",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.onescript",
+				"match": "\\b(if|while|for|return|switch|case|in|func|bytes|string|var|break|continue|global|default|else if|else|true|false|len)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.onescript",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.onescript",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.ts"
+}

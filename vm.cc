@@ -76,6 +76,9 @@ const Instruction* Executor::GetInstruction(Instruction::keyType key) {
 }
 
 std::vector<const Instruction*> Executor::GetInstructions(std::vector<Instruction::keyType> keys) {
+    if(keys.size()==0){
+        return std::vector<const Instruction*>();
+    }
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
     while (iter != mScriptList.end()) {
         if ((*iter)->IsContainInstruction(keys[0])) {
@@ -108,6 +111,9 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     if (ins->OpCode >= Instructions::kADD && ins->OpCode <= Instructions::kMAXArithmeticOP) {
         return ExecuteArithmeticOperation(ins, ctx);
     }
+    if (ins->OpCode >= Instructions::kADDWrite && ins->OpCode <= Instructions::kRSHIFTWrite) {
+        return ExecuteXUpdate(ins, ctx);
+    }
     switch (ins->OpCode) {
     case Instructions::kNop:
         return Value();
@@ -126,49 +132,6 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
         return ctx->GetVarValue(ins->Name);
     case Instructions::kWriteVar: {
         Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
-        ctx->SetVarValue(ins->Name, val);
-        return Value();
-    }
-    case Instructions::kADDWrite: {
-        Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
-        Value newVal = valOld + val;
-        ctx->SetVarValue(ins->Name, newVal);
-        return Value();
-    }
-    case Instructions::kSUBWrite: {
-        Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
-        ctx->SetVarValue(ins->Name, valOld - val);
-        return Value();
-    }
-    case Instructions::kDIVWrite: {
-        Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
-        ctx->SetVarValue(ins->Name, valOld * val);
-        return Value();
-    }
-    case Instructions::kMULWrite: {
-        Value valOld = ctx->GetVarValue(ins->Name);
-        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
-        ctx->SetVarValue(ins->Name, valOld / val);
-        return Value();
-    }
-    case Instructions::kINCWrite: {
-        Value val = ctx->GetVarValue(ins->Name);
-        if (val.Type != ValueType::kInteger) {
-            throw RuntimeException("++ not implement for this object type object:" + ins->Name);
-        }
-        val.Integer += 1;
-        ctx->SetVarValue(ins->Name, val);
-        return Value();
-    }
-    case Instructions::kDECWrite: {
-        Value val = ctx->GetVarValue(ins->Name);
-        if (val.Type != ValueType::kInteger) {
-            throw RuntimeException("++ not implement for this object type object:" + ins->Name);
-        }
-        val.Integer += 1;
         ctx->SetVarValue(ins->Name, val);
         return Value();
     }
@@ -243,6 +206,59 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     }
 }
 
+Value Executor::ExecuteXUpdate(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    Value oldVal = ctx->GetVarValue(ins->Name);
+    Value val;
+    if (ins->Refs.size()) {
+        val = Execute(GetInstruction(ins->Refs[0]), ctx);
+    }
+    switch (ins->OpCode) {
+    case Instructions::kADDWrite:
+        oldVal += val;
+        break;
+    case Instructions::kSUBWrite:
+        oldVal -= val;
+        break;
+    case Instructions::kDIVWrite:
+        oldVal *= val;
+        break;
+    case Instructions::kMULWrite:
+        oldVal /= val;
+        break;
+    case Instructions::kBORWrite:
+        oldVal |= val;
+        break;
+    case Instructions::kBANDWrite:
+        oldVal &= val;
+        break;
+    case Instructions::kBXORWrite:
+        oldVal ^= val;
+        break;
+    case Instructions::kLSHIFTWrite:
+        oldVal <<= val;
+        break;
+    case Instructions::kRSHIFTWrite:
+        oldVal >>= val;
+        break;
+    case Instructions::kINCWrite:
+        if (oldVal.Type != ValueType::kInteger) {
+            throw RuntimeException("++ operation only can used on Integer ");
+        }
+        oldVal.Integer++;
+        break;
+    case Instructions::kDECWrite:
+        if (oldVal.Type != ValueType::kInteger) {
+            throw RuntimeException("-- operation only can used on Integer ");
+        }
+        oldVal.Integer--;
+        break;
+    default:
+        LOG("Unknown Instruction:" + ins->ToString());
+    }
+    ctx->SetVarValue(ins->Name,oldVal);
+    return oldVal;
+}
+
 Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     const Instruction* one = GetInstruction(ins->Refs[0]);
     const Instruction* tow = GetInstruction(ins->Refs[1]);
@@ -284,6 +300,9 @@ Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr
     if (ins->OpCode == Instructions::kNOT) {
         return Value(!firstVal.ToBoolen());
     }
+    if (ins->OpCode == Instructions::kBNG) {
+        return ~firstVal;
+    }
     const Instruction* second = GetInstruction(ins->Refs[1]);
     Value secondVal = Execute(second, ctx);
 
@@ -310,6 +329,20 @@ Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr
         return Value(firstVal == secondVal);
     case Instructions::kNE:
         return Value(firstVal != secondVal);
+    case Instructions::kBAND:
+        return firstVal & secondVal;
+    case Instructions::kBOR:
+        return firstVal | secondVal;
+    case Instructions::kBXOR:
+        return firstVal ^ secondVal;
+    case Instructions::kLSHIFT:
+        return firstVal << secondVal;
+    case Instructions::kRSHIFT:
+        return firstVal >> secondVal;
+    case Instructions::kOR:
+        return Value(firstVal.ToBoolen() || secondVal.ToBoolen());
+    case Instructions::kAND:
+        return Value(firstVal.ToBoolen() && secondVal.ToBoolen());
     default:
         LOG("Unknow OpCode:" + ins->ToString());
         return Value();

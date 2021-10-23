@@ -11,6 +11,7 @@ float  - 双精度浮点
 array  - 数组（数组可存储所有值类型）  
 map    - 字典  
 NULL   - NULL值  
+bytes  - 无符号字符串
 Resource - 系统资源，例如文件句柄  
 
 变量定义  
@@ -36,9 +37,11 @@ func do_something(a,b){
 ```
 语法  
 支持大部分现代脚本的控制结构  
-赋值 = += -= *= /=   
+赋值 = += -= *= /= |= &= ^= >>= <<=    
 基本算术运算 + - * / %(整数求余)   
-条件判断 if else 语法  
+整数位运算 & | ^ ~ >> <<  
+逻辑运算 || &&  > >= < <= == !=       
+条件判断语句 if else 语法  
 循环语法 for      
 switch语法  
 数组和字典迭代 for ... in ...  
@@ -47,175 +50,229 @@ switch语法
 
 ## 语法示例  
 ```
-var _test_pass = true;
 
+#test help function
+
+var _is_test_passed = true;
 func assertEqual(a,b){
     if(a != b){
         Println("error here a=",a,"b=",b);
-        _test_pass = false;
+        _is_test_passed = false;
     }
 }
 
 func assertNotEqual(a,b){
     if(a == b){
         Println("error here a=",a,"b=",b);
-        _test_pass = false;
+        _is_test_passed = false;
     } 
 }
 
-Println("test for (break,continue) statement");
+#basic arithmetic operation
 
-var _execute_count =0;
-var _not_executed  =0;
+assertEqual(1+1+2,4);
+assertEqual(1+(1+2),4);
+assertEqual(1+2*4,9);
+assertEqual(4*(1+2),12);
+assertEqual(4*5/5,4);
 
-for (var i =0;i< 9;i++){
-    _execute_count ++;
-    if (i>5){
-        continue;
+func test_basic_convert(){
+    var i = 100,f = 3.1415;
+    var res = i+f;
+    assertEqual(typeof(i),"integer");
+    assertEqual(typeof(f),"float");
+
+    #float + integer = float
+    assertEqual(typeof(res),"float");
+
+    #integer+=float  result as Integer
+    i += 4.6;
+    assertEqual(typeof(i),"integer");
+
+    #convert string to bytes
+    var buf = bytes("hello");
+    var buf2 = bytes("world");
+
+    assertEqual(typeof(buf),"bytes");
+    assertEqual(typeof(buf2),"bytes");
+
+    #convert Integer array to bytes
+    var buf3 = bytes(0x68,0x65,0x6C,0x6C,0x6F);
+    var buf4 = bytes([0x77,0x6F,0x72,0x6C,0x64]);
+
+    assertEqual(typeof(buf3),"bytes");
+    assertEqual(typeof(buf4),"bytes");
+    assertEqual(buf,buf3);
+    assertEqual(buf2,buf4);
+
+    #convert hex string to bytes
+    var buf5= BytesFromHexString("68656C6C6F20776F726C64");
+    var buf6= append(buf,0x20,buf4);
+
+    assertEqual(buf5,buf6);
+
+    #convert bytes to string 
+    var strTemp = string(buf5);
+    assertEqual(typeof(strTemp),"string");
+
+    var str1 = string(0x68,0x65,0x6C,0x6C,0x6F);
+    assertEqual(typeof(str1),"string");
+    var str2 = string([0x77,0x6F,0x72,0x6C,0x64]);
+    assertEqual(typeof(str2),"string");
+    var str3 = str1 + " " +str2;
+    assertEqual(str3,string(buf5));
+    assertEqual(str1[0],'h');
+}
+
+test_basic_convert();
+
+func test_bitwise_operation(){
+    assertEqual(0xFFEE & 0xFF,0xEE);
+    assertEqual(0xFF00 | 0xFF,0xFFFF);
+    assertEqual(0xFF ^ 0x00,0xFF);
+    assertEqual(0xFF54>>8,0xFF);
+    assertEqual(0xFF54<<8,0xFF5400);
+    assertEqual(true || false,true);
+    assertEqual(false || true,true);
+    assertEqual(false && true,false);
+    assertEqual(true && false,false);
+    assertEqual(true && true,true);
+}
+
+test_bitwise_operation();
+
+
+func test_loop(){
+    var j =0,k=0;
+    for (var i = 0;i< 9;i++){
+        j++;
+        k++;
     }
-    _not_executed ++;
-}
+    assertEqual(j,9);
+    assertEqual(k,9);
 
-assertEqual(_execute_count,9);
-assertEqual(_not_executed,6);
-
-_execute_count = 0;
-_not_executed = 0;
-var _index = 0;
-for (;_index< 9;_index++){
-    _execute_count ++;
-    if (_index>5){
-        continue;
+    j=0;
+    k=0;
+    for (var i = 0;i< 9;i++){
+        j++;
+       if(!(i%2)){
+           k++;
+       }
     }
-    _not_executed ++;
-}
-
-_execute_count = 0;
-_not_executed = 0;
-_index = 0;
-for (;;_index++){
-    _execute_count ++;
-    if(_index > 8){
-        break;
-    }
-    _not_executed ++;
-}
-assertEqual(_execute_count,10);
-assertEqual(_not_executed,9);
-
-_execute_count = 0;
-_not_executed = 0;
-_index = 0;
-for {
-    _execute_count++;
-    if(_index > 8){
-        break;
-    }
-    _not_executed++;
-    _index ++;
-}
-assertEqual(_execute_count,10);
-assertEqual(_not_executed,9);
-
-Println("test arithmetic operation");
-assertEqual(1*(2+3),5);
-assertEqual(1+1-1,1);
-assertEqual(1+2*3,7);
-
-Println("test shadow name");
-var name1 = 0;
-for (var name1 = 0; name1 < 6;name1++ ){
-}
-assertEqual(name1,0);
-
-var count = 0;
-var count2 = 0;
-var count3 = 0,count4 =0;
-
-func find_number(max){
-    for(var i = 1; i< max;i++){
-        if(i%2 == 0){
-            count++;
-        }else if(i%3 ==0){
-            count2++;
-        }else if(i%5 ==0){
-            count3++;
-        }else if(i%4 == 0){
-            count4++;
-        }else{
-
+    assertEqual(k,5);
+    assertEqual(j,9);
+    j=0;
+    k=0;
+    for (var i = 0;i< 9;i++){
+        j++;
+        if(i > 5){
+            continue;
         }
+        k++;
     }
-}
-assertEqual(count4,0);
-find_number(100);
-Println(count,count2,count3);
-var type = TypeOf(count);
-Println(type);
+    assertEqual(k,6);
+    assertEqual(j,9);
 
-#array & map
-var array_item = "string";
-var list = ["value1","value2",100,array_item];
-
-var sub_list = list[1:];
-
-assertEqual(len(sub_list),3);
-assertEqual(sub_list[0],"value2");
-
-for v in list{
-    Println(v);
-}
-
-assertEqual(list[0],"value1");
-assertEqual(len(list[0]),6);
-assertEqual(len(list),4);
-
-var dic = {"type":"cat","age":2};
-assertEqual(dic["type"],"cat");
-assertEqual(dic["age"],2);
-dic["name"] = "wawa";
-assertEqual(dic["name"],"wawa");
-for k,v in dic{
-    Println(ToString(k)+":"+ToString(v));
-}
-
-var string_count = 0;
-func printValueType(val){
-    switch(TypeOf(val)){
-        case "String":{
-            Println(val,"is a string");
+    j=0;
+    k=0;
+    for (var i = 0;i< 20;i++){
+        j++;
+        if(i >= 8){
             break;
-            string_count++;
         }
-        case "Integer":{
-            Println(val,"is a Integer");
-        }
-        case "Float":{
-            Println(val,"is a Float");
-        }
-        default:{
-            Println("other...");
-        }
+        k++;
     }
-}
-assertEqual(string_count,0);
-printValueType("100");
-printValueType(100);
-printValueType(3.1415926);
-var nullobj;
-printValueType(nullobj);
+    assertEqual(k,8);
+    assertEqual(j,9);
 
-var _dirs = ["/bin/","/usr/bin/","/usr/local/bin/"];
-var _files = ["test1","test2","test3"];
-var _full_paths = [];
-var full;
-for v in _dirs{
-    for v2 in _files{
-        _full_paths = append(_full_paths, v+v2);
+    j=0;
+    k=0;
+    for{
+        j++;
+        k++;
+        if(j > 8){
+            break;
+        }
     }
+    #empty body
+    for(var i =0;i<3;i++){
+
+    }
+    assertEqual(k,9);
+    assertEqual(j,9);
 }
-assertEqual(len(_full_paths),len(_dirs)*len(_files));
-Println(_full_paths);
+
+test_loop();
+
+func test_shadow_name(name1){
+    var name2 = name1;
+    for(var name2 =0; name2< 3;name2++){
+    }
+    for(var i =0; i< 3;i++){
+        name2++;
+    }
+    assertNotEqual(name1,name2);
+}
+
+test_shadow_name(100);
+
+func test_array_map(){
+    var list = ["hello"," ","world"];
+    assertEqual(typeof(list),"array");
+    assertEqual(len(list),3);
+    assertEqual(list[0],"hello");
+    list = append(list,"script");
+    assertEqual(len(list),4);
+    assertEqual(list[3],"script");
+    list = append(list,100);
+    assertEqual(len(list),5);
+    assertEqual(typeof(list[4]),"integer");
+
+    var sub = list[2:];
+    assertEqual(sub[0],"world");
+    assertEqual(len(sub),3);
+    
+    sub = list[2:4];
+    assertEqual(len(sub),2);
+    assertEqual(sub[0],"world");
+    assertEqual(sub[1],"script");
+    var _dirs = ["/bin/","/usr/bin/","/usr/local/bin/"];
+    var _files = ["test1","test2","test3"];
+    var _full_paths = [];
+    var full;
+    for v in _dirs{
+        for v2 in _files{
+         _full_paths = append(_full_paths, v+v2);
+        }
+    }
+    assertEqual(len(_full_paths),len(_dirs)*len(_files));
+
+    #dic key type must same type
+    var dic = {"accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+     "accept-encoding":"gzip, deflate, br",
+     "referer":"https://www.google.com/",
+     "accpet-languare":"zh-CN,zh;q=0.9,en;q=0.8",
+     "X":1000
+    };
+
+    #this expression will throw runtime exception
+    #dic[800]= "800";
+
+    assertEqual(typeof(dic),"map");
+    assertEqual(len(dic),5);
+    assertEqual(dic["X"],1000);
+    dic["800"]= "800";
+    assertEqual(dic["800"],"800");
+    assertEqual(dic["accept-encoding"],"gzip, deflate, br");
+
+    #that is ok,the key is same
+    var dic2 ={100:"100",200:"200",300:"300",400:"400",3.14:3.1415926};
+    assertEqual(dic2[100],"100");
+    assertEqual(dic2[3.14],3.1415926);
+}
+
+test_array_map();
+
 ```
 ## 参考
 https://github.com/stdpain/compiler-interpreter

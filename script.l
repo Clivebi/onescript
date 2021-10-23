@@ -65,16 +65,30 @@ int yywrap(void)
 <INITIAL>"switch"    return SWITCH;
 <INITIAL>"case"      return CASE;
 <INITIAL>"default"   return DEFAULT;
-
+<INITIAL>"|"         return BOR;
+<INITIAL>"&"         return BAND;
+<INITIAL>"^"         return BXOR;
+<INITIAL>"~"         return BNG;
+<INITIAL>"<<"        return LSHIFT;
+<INITIAL>">>"        return RSHIFT;
+<INITIAL>"|="        return BORASSIGN;
+<INITIAL>"&="        return BANDASSIGN;
+<INITIAL>"^="        return BXORASSIGN;
+<INITIAL>"<<="       return LSHIFTASSIGN;
+<INITIAL>">>="       return RSHIFTASSIGN;
+<INITIAL>"||"        return OR;
+<INITIAL>"&&"        return AND;
 
 <INITIAL>[A-Za-z_][A-Za-z_0-9]* {
     yylval.identifier = parser->CreateString(yytext);
     return IDENTIFIER;
 }
 <INITIAL>([1-9][0-9]*)|"0" {
-    int temp;
-    sscanf(yytext, "%d", &temp);
-    yylval.value_integer = temp;
+    yylval.value_integer = strtol(yytext,NULL,10);
+    return INT_LITERAL;
+}
+<INITIAL>0[xX][0-9a-fA-F]+ {
+    yylval.value_integer = strtol(yytext+2,NULL,16);
     return INT_LITERAL;
 }
 <INITIAL>[0-9]+\.[0-9]+ {
@@ -82,6 +96,10 @@ int yywrap(void)
     sscanf(yytext, "%lf", &temp);
     yylval.value_double = temp;
     return DOUBLE_LITERAL;
+}
+<INITIAL>'[a-zA-Z]' {
+    yylval.value_integer = yytext[1];
+    return INT_LITERAL;
 }
 
 <INITIAL>\" {

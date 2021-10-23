@@ -45,6 +45,7 @@ protected:
     Value ExecuteForStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteXUpdate(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ctx);

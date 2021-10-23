@@ -1,0 +1,25 @@
+{
+    "name": "onescript",
+    "displayName": "ts",
+    "description": "one script support",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.61.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "onescript",
+            "aliases": ["one script", "onescript"],
+            "extensions": [".ts"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "onescript",
+            "scopeName": "source.ts",
+            "path": "./syntaxes/onescript.tmLanguage.json"
+        }]
+    }
+}

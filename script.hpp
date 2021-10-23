@@ -49,7 +49,15 @@ const Type kLE = kArithmeticOP + 9;
 const Type kEQ = kArithmeticOP + 10;
 const Type kNE = kArithmeticOP + 11;
 const Type kNOT = kArithmeticOP + 12;
-const Type kMAXArithmeticOP = kArithmeticOP + 12;
+const Type kBOR = kArithmeticOP + 13;
+const Type kBAND = kArithmeticOP + 14;
+const Type kBXOR = kArithmeticOP + 15;
+const Type kBNG = kArithmeticOP + 16;
+const Type kLSHIFT = kArithmeticOP + 17;
+const Type kRSHIFT = kArithmeticOP + 18;
+const Type kOR = kArithmeticOP + 19;
+const Type kAND = kArithmeticOP + 20;
+const Type kMAXArithmeticOP = kArithmeticOP + 20;
 
 const Type kADDWrite = 71;
 const Type kSUBWrite = 72;
@@ -57,6 +65,11 @@ const Type kMULWrite = 73;
 const Type kDIVWrite = 74;
 const Type kINCWrite = 75;
 const Type kDECWrite = 76;
+const Type kBORWrite = 77;
+const Type kBANDWrite = 78;
+const Type kBXORWrite = 79;
+const Type kLSHIFTWrite = 80;
+const Type kRSHIFTWrite = 81;
 }; // namespace Instructions
 
 class Instruction {
