@@ -84,11 +84,11 @@ int yywrap(void)
     return IDENTIFIER;
 }
 <INITIAL>([1-9][0-9]*)|"0" {
-    yylval.value_integer = strtol(yytext,NULL,10);
+    yylval.value_integer = strtoll(yytext,NULL,10);
     return INT_LITERAL;
 }
 <INITIAL>0[xX][0-9a-fA-F]+ {
-    yylval.value_integer = strtol(yytext+2,NULL,16);
+    yylval.value_integer = strtoll(yytext+2,NULL,16);
     return INT_LITERAL;
 }
 <INITIAL>[0-9]+\.[0-9]+ {

@@ -10,24 +10,26 @@ Instruction* Parser::NULLObject() {
     return mScript->NULLInstruction();
 }
 
-Instruction* Parser::CreateObjectList(Instruction* element) {
+Instruction* Parser::CreateList(const std::string& typeName, Instruction* element) {
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(element, ""));
     }
-    return mScript->NewGroup(element);
+    Instruction* obj = mScript->NewGroup(element);
+    obj->Name = typeName;
+    return obj;
 }
 
-Instruction* Parser::AddObjectToObjectList(Instruction* list, Instruction* element) {
+Instruction* Parser::AddToList(Instruction* list, Instruction* element) {
     return mScript->AddToGroup(list, element);
 }
 
 Instruction* Parser::VarDeclarationExpresion(const std::string& name, Instruction* value) {
-    if (value == NULL) {
-        value = NULLObject();
-    }
-    Instruction* obj = mScript->NewInstruction(value);
+    Instruction* obj = mScript->NewInstruction();
     obj->OpCode = Instructions::kNewVar;
     obj->Name = name;
+    if(value != NULL){
+        obj->Refs.push_back(value->key);
+    }
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
     }
@@ -77,7 +79,7 @@ Instruction* Parser::CreateConst(double value) {
 
 Instruction* Parser::CreateFunction(const std::string& name, Instruction* formalParameters,
                                     Instruction* body) {
-    if(formalParameters == NULL){
+    if (formalParameters == NULL) {
         formalParameters = NULLObject();
     }
     Instruction* obj = mScript->NewInstruction(formalParameters, body);
@@ -90,7 +92,7 @@ Instruction* Parser::CreateFunction(const std::string& name, Instruction* formal
 }
 
 Instruction* Parser::CreateFunctionCall(const std::string& name, Instruction* actualParameters) {
-    if(actualParameters == NULL){
+    if (actualParameters == NULL) {
         actualParameters = NULLObject();
     }
     Instruction* obj = mScript->NewInstruction(actualParameters);
@@ -184,6 +186,7 @@ Instruction* Parser::CreateContinueStatement() {
 Instruction* Parser::CreateMapItem(Instruction* key, Instruction* value) {
     Instruction* obj = mScript->NewInstruction(key, value);
     obj->OpCode = Instructions::kGroup;
+    obj->Name ="map-item";
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
     }

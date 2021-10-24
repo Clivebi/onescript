@@ -220,3 +220,90 @@ func test_array_map(){
 }
 
 test_array_map();
+
+# ByteOrder test
+
+func reverse_bytes(blob){
+    var result = bytes();
+    for(var i = len(blob)-1;i>=0;i--){
+        result += blob[i];
+    }
+    return result;
+}
+
+assertEqual(reverse_bytes(bytes(0x01,0x2,0x03,0x4)),bytes(0x04,0x03,0x02,0x1));
+
+#0xFFAABBCC -> 0xCCBBAAFF
+func Swap32(val){
+    var a = (val&0xFF),b=(val>>8)&0xFF,c=(val>>16)&0xFF,d=(val>>24)&0xFF;
+    return (a <<24)|(b<<16)|(c<<8)|d;
+}
+
+#0xFFAA -> 0xAAFF
+func Swap16(val){
+    var a = (val&0xFF),b=(val>>8)&0xFF;
+    return (a<<8)|b;
+}
+
+#0xFFEEDDCCBBAA9988->0x8899AABBCCDDEEFF
+func Swap64(val){
+    var a = (val&0xFF),b=(val>>8)&0xFF,c=(val>>16)&0xFF,d=(val>>24)&0xFF;
+    var e =(val>>32)&0xFF,f =(val>>40)&0xFF,g =(val>>48)&0xFF,h =(val>>56)&0xFF;
+    return (a <<56)|(b<<48)|(c<<40)|(d<<32)|(e<<24)|(f<<16)|(g<<8)|h; 
+}
+
+func IsBigEndianOS(){
+    var env = VMEnv();
+    return env["ByteOrder"] == "BigEndian";
+}
+
+func AppendUInt32ToBuffer(buf,val,isBigEndian){
+    if(isBigEndian){
+        return append(buf,(val>>24)&0xFF,(val>>16)&0xFF,(val>>8)&0xFF,val&0xFF);
+    }
+    return append(buf,(val)&0xFF,(val>>8)&0xFF,(val>>16)&0xFF,(val>>24)&0xFF);
+}
+
+func ReadUInt32FromBuffer(buf,isBigEndian){
+    var val ;
+    if(isBigEndian){
+        val = ((buf[0]&0xFF)<<24)|((buf[1]&0xFF)<<16) |((buf[2]&0xFF)<<8) |buf[3]&0xFF;
+    }else{
+        val = ((buf[3]&0xFF)<<24)|((buf[2]&0xFF)<<16) |((buf[1]&0xFF)<<8) |buf[0]&0xFF;
+    }
+    return val &0xFFFFFFFF;
+}
+
+func AppendUInt16ToBuffer(buf,val,isBigEndian){
+    if(isBigEndian){
+        return append(buf,(val>>8)&0xFF,val&0xFF);
+    }
+    return append(buf,(val)&0xFF,(val>>8)&0xFF);
+}
+
+func ReadUInt16FromBuffer(buf,isBigEndian){
+    var val ;
+    if(isBigEndian){
+        val = ((buf[0]&0xFF)<<8) |buf[1]&0xFF;
+    }else{
+        val = ((buf[1]&0xFF)<<8) |buf[0]&0xFF;
+    }
+    return val&0xFFFF;
+}
+
+func test_bin_pack(){
+    var val32 = 0xFFEECCDD,val16 = 0xFFEE;
+    buf = bytes();
+    buf = AppendUInt32ToBuffer(buf,val32,true);
+    assertEqual(buf[0]&0xFF,0xFF);
+    assertEqual(buf[1]&0xFF,0xEE);
+    assertEqual(ReadUInt32FromBuffer(buf,true),val32);
+    buf = bytes();
+    buf = AppendUInt16ToBuffer(buf,val16,true);
+    assertEqual(buf[0]&0xFF,0xFF);
+    assertEqual(buf[1]&0xFF,0xEE);
+    assertEqual(ReadUInt16FromBuffer(buf,true),val16);
+    assertEqual(Swap32(val32),0xDDCCEEFF);
+}
+
+test_bin_pack();

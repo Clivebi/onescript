@@ -135,7 +135,7 @@ public:
         if (OpCode >= Instructions::kADD && OpCode <= Instructions::kMAXArithmeticOP) {
             return "Arithmetic Operation";
         }
-        if (OpCode >= Instructions::kADDWrite && OpCode <= Instructions::kDECWrite) {
+        if (OpCode >= Instructions::kADDWrite && OpCode <= Instructions::kRSHIFTWrite) {
             return "Update Var:" + Name;
         }
         switch (OpCode) {
@@ -154,7 +154,7 @@ public:
         case Instructions::kCallFunction:
             return "Call Function:" + Name;
         case Instructions::kGroup:
-            return "Instruction List";
+            return Name+"(list)";
         case Instructions::kContitionExpression:
             return "ContitionExpression";
         case Instructions::kIFStatement:
@@ -191,8 +191,8 @@ public:
 class Script : public CRefCountedThreadSafe<Script> {
 public:
     Instruction* EntryPoint;
-    std::string  Name;
-    explicit Script(std::string name):Name(name) {
+    std::string Name;
+    explicit Script(std::string name) : Name(name) {
         EntryPoint = NULL;
         mInstructionKey = 1;
         mConstKey = 1;
@@ -349,6 +349,87 @@ public:
         return result;
     }
 
+    /*
+     $$= parser->CreateList("decl-assign",$1); 
+                $$= parser->CreateList("decl",$1); 
+                $$= parser->CreateList("elsif",$1); 
+                $$= parser->CreateList("const-list",$1); 
+                $$= parser->CreateList("decl-args",$1); 
+                $$= parser->CreateList("value-list",$1); 
+                $$= parser->CreateList("assign-list",$1);   
+                $$= parser->CreateList("map-items",$1);   
+                Instruction* obj = parser->CreateList("helper",$2); 
+                $$= parser->CreateList("case-list",$1); 
+                $$=parser->CreateList("st-blocklist",$1); 
+                $$=parser->CreateList("st-list",$1); 
+
+    */
+
+    void RestoreToCode(std::ostream& o, const Instruction* ins) {
+        if (ins->OpCode >= Instructions::kADD && ins->OpCode <= Instructions::kMAXArithmeticOP) {
+            return;
+        }
+        if (ins->OpCode >= Instructions::kADDWrite && ins->OpCode <= Instructions::kRSHIFTWrite) {
+            return;
+        }
+        switch (ins->OpCode) {
+        case Instructions::kNop:
+            return;
+        case Instructions::kConst:
+            return;
+        case Instructions::kNewVar:
+            return;
+        case Instructions::kReadVar:
+            return;
+        case Instructions::kWriteVar:
+            return;
+        case Instructions::kNewFunction: {
+            o << "func " << Name << "( ";
+            const Instruction* args = GetInstruction(ins->Refs[0]);
+            const Instruction* body = GetInstruction(ins->Refs[1]);
+            o << JoinRefsName(args);
+            o << "){" << std::endl;
+            RestoreToCode(o,body);
+            o << std::endl;
+            o << "}" << std::endl;
+        } break;
+        case Instructions::kCallFunction:
+            o << ins->Name << "(";
+            RestoreToCode(o,GetInstruction(ins->Refs[0]));
+            o << ")";
+            return;
+        case Instructions::kGroup:
+            return;
+        case Instructions::kContitionExpression:
+            return;
+        case Instructions::kIFStatement:
+            return;
+        case Instructions::kRETURNStatement:
+            return;
+        case Instructions::kFORStatement:
+            return;
+        case Instructions::kBREAKStatement:
+            return;
+        case Instructions::kCONTINUEStatement:
+            return;
+        case Instructions::kReadAt:
+            return;
+        case Instructions::kWriteAt:
+            return;
+        case Instructions::kCreateMap:
+            return;
+        case Instructions::kCreateArray:
+            return;
+        case Instructions::kSlice:
+            return;
+        case Instructions::kForInStatement:
+            return;
+        case Instructions::kSwitchCaseStatement:
+            return;
+        default:
+            return;
+        }
+    }
     std::string DumpInstruction(const Instruction* ins, std::string prefix) {
         std::stringstream stream;
         stream << prefix;
@@ -380,5 +461,19 @@ public:
     }
 
     void ReadFromStream(std::iostream& stream) {}
+
+protected:
+    std::string JoinRefsName(const Instruction* ins) {
+        std::string refs = "";
+        std::vector<const Instruction*> list = GetInstructions(ins->Refs);
+        for (size_t i = 0; i < list.size(); i++) {
+            refs += list[i]->Name;
+            refs += ",";
+        }
+        if (refs.size() == 0) {
+            return refs;
+        }
+        return refs.substr(0, refs.size() - 1);
+    }
 };
 } // namespace Interpreter

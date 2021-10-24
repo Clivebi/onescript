@@ -85,6 +85,7 @@ int main(int argc, char* argv[]) {
         DefaultExecutorCallback callback(folder);
         Executor exe(&callback);
         std::string err = "";
+        //std::cout << script->DumpInstruction(script->EntryPoint,"")<<std::endl;
         if (!exe.Execute(script, err, true)) {
             fprintf(stderr, "execute error:%s\n", err.c_str());
             return -1;

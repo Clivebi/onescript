@@ -95,11 +95,11 @@ declaration_and_assign:IDENTIFIER ASSIGN value_expression
         ;
 declaration_and_assign_list:declaration_and_assign_list COMMA declaration_and_assign
         {
-               $$= parser->AddObjectToObjectList($1,$3);
+               $$= parser->AddToList($1,$3);
         }
         |declaration_and_assign
         {
-               $$= parser->CreateObjectList($1); 
+               $$= parser->CreateList("decl-assign",$1); 
         }
         ;
 
@@ -111,11 +111,11 @@ var_declaration_and_assign:VAR declaration_and_assign_list
 
 declarationlist:declarationlist COMMA declaration
         {
-                $$= parser->AddObjectToObjectList($1,$3);
+                $$= parser->AddToList($1,$3);
         }
         | declaration
         {
-                $$= parser->CreateObjectList($1);
+                $$= parser->CreateList("decl",$1); 
         }
         ;
 
@@ -162,11 +162,11 @@ if_expresion: IF LP value_expression RP block
 
 elseif_expresionlist:elseif_expresionlist  elseif_expresion
         {
-                $$=parser->AddObjectToObjectList($1,$2);
+                $$=parser->AddToList($1,$2);
         }
         |elseif_expresion
         {
-                $$=parser->CreateObjectList($1);
+                $$= parser->CreateList("elsif",$1); 
         }
         ;
 
@@ -266,11 +266,11 @@ const_value:INT_LITERAL
 
 const_value_list:const_value_list COMMA const_value
         {
-                $$=parser->AddObjectToObjectList($1,$3);        
+                $$=parser->AddToList($1,$3);        
         }
         |const_value
         {
-                $$=parser->CreateObjectList($1);
+                $$= parser->CreateList("const-list",$1); 
         }
         ;
 
@@ -303,11 +303,11 @@ func_call_expression: IDENTIFIER LP value_list RP
 
 formal_parameterlist:formal_parameterlist COMMA formal_parameter
         {
-            $$=parser->AddObjectToObjectList($1,$3);      
+            $$=parser->AddToList($1,$3);      
         }
         |formal_parameter
         {
-             $$=parser->CreateObjectList($1);   
+             $$= parser->CreateList("decl-args",$1); 
         }
         ;
 
@@ -320,11 +320,11 @@ formal_parameter:IDENTIFIER
 
 value_list:value_list COMMA value_expression
         {
-                $$=parser->AddObjectToObjectList($1,$3);    
+                $$=parser->AddToList($1,$3);    
         }
         |value_expression
         {
-                $$=parser->CreateObjectList($1);
+                $$= parser->CreateList("value-list",$1); 
         }
         ;
 
@@ -514,11 +514,11 @@ index_to_write:IDENTIFIER LB key_value RB ASSIGN value_expression
 
 assign_expression_list: assign_expression_list COMMA assign_expression
         {
-               $$=parser->AddObjectToObjectList($1,$3);  
+               $$=parser->AddToList($1,$3);  
         }
         |assign_expression
         {
-               $$=parser->CreateObjectList($1);    
+               $$= parser->CreateList("assign-list",$1);   
         }
         ;
 
@@ -530,11 +530,11 @@ map_item:value_expression COLON value_expression
         ;
 map_item_list:map_item_list COMMA map_item
         {
-                $$=parser->AddObjectToObjectList($1,$3); 
+                $$=parser->AddToList($1,$3); 
         }
         |map_item
         {
-                $$=parser->CreateObjectList($1);  
+                $$= parser->CreateList("map-items",$1);   
         }
         ;
 
@@ -593,17 +593,17 @@ slice:IDENTIFIER LB key_value COLON key_value RB
 
 case_item:CASE const_value_list COLON block
         {
-                Instruction* obj =parser->CreateObjectList($2);
-                $$=parser->AddObjectToObjectList(obj,$4);
+                Instruction* obj = parser->CreateList("helper",$2); 
+                $$=parser->AddToList(obj,$4);
         }
         ;
 case_item_list:case_item_list case_item
         {
-                $$=parser->AddObjectToObjectList($1,$2);  
+                $$=parser->AddToList($1,$2);  
         }
         |case_item
         {
-                $$=parser->CreateObjectList($1);
+                $$= parser->CreateList("case-list",$1); 
         }
         ;
 
@@ -633,11 +633,11 @@ statement_in_block:var_declaration SEMICOLON
 
 statement_in_block_list:statement_in_block_list statement_in_block
         {
-                $$=parser->AddObjectToObjectList($1,$2);
+                $$=parser->AddToList($1,$2);
         }
         |statement_in_block
         {
-                $$=parser->CreateObjectList($1);
+                $$=parser->CreateList("st-blocklist",$1); 
         }
         ;
 
@@ -647,11 +647,11 @@ statement: func_declaration
 
 statementlist: statementlist  statement
         {
-                $$=parser->AddObjectToObjectList($1,$2);
+                $$=parser->AddToList($1,$2);
         }
         |statement
         {
-                $$=parser->CreateObjectList($1);
+                $$=parser->CreateList("st-list",$1); 
         }
         ;
 

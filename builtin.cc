@@ -4,7 +4,7 @@
 
 using namespace Interpreter;
 
-Value Println(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     std::string result;
     for (std::vector<Value>::iterator iter = values.begin(); iter != values.end(); iter++) {
         result += iter->ToString();
@@ -14,19 +14,19 @@ Value Println(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor
     return Value();
 }
 
-Value Len(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value Len(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value((long)arg.length());
 }
 
-Value TypeOf(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value TypeOf(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value(arg.TypeName());
 }
 
-Value ToString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value ToString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     Value& arg = values.front();
     assert(values.size() == 1);
     return Value(arg.ToString());
@@ -52,7 +52,7 @@ void AppendIntegerArrayToBytes(Value& val, const std::vector<Value>& values) {
     }
 }
 
-Value Append(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value Append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     Value to = values.front();
     if (to.Type == ValueType::kArray) {
         std::vector<Value>::iterator iter = values.begin();
@@ -90,7 +90,7 @@ Value Append(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor*
     throw RuntimeException("first append value must an array or bytes");
 }
 
-Value Close(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value Close(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     if (values.size() != 1) {
         throw RuntimeException("Close invalid parameter count");
     }
@@ -102,7 +102,7 @@ Value Close(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* 
     return Value();
 }
 
-Value Exit(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value Exit(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     if (values.size() != 1) {
         throw RuntimeException("exit invalid parameter count");
     }
@@ -114,7 +114,7 @@ Value Exit(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* v
     return Value();
 }
 
-Value Require(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value Require(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     if (values.size() != 1) {
         throw RuntimeException("require invalid parameter count");
     }
@@ -129,7 +129,7 @@ Value Require(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor
     return Value();
 }
 
-Value MakeBytes(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value MakeBytes(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     if (values.size() == 0) {
         return Value::make_bytes("");
     }
@@ -154,7 +154,7 @@ Value MakeBytes(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Execut
     return ret;
 }
 
-Value MakeString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value MakeString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     if (values.size() == 0) {
         return Value("");
     }
@@ -197,7 +197,7 @@ bool IsHexChar(char c) {
     return false;
 }
 
-Value BytesFromHexString(std::vector<Value>& values, scoped_refptr<VMContext> ctx, Executor* vm) {
+Value BytesFromHexString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     if (values.size() != 1) {
         throw RuntimeException("BytesFromHexString invalid parameter count");
     }
@@ -223,9 +223,39 @@ Value BytesFromHexString(std::vector<Value>& values, scoped_refptr<VMContext> ct
     return Value::make_bytes(result);
 }
 
-int g_builtinMethod_size = 11;
+bool IsBigEndianVM() {
+    unsigned int value = 0xAA;
+    unsigned char* ptr = (unsigned char*)&value;
+    if (*ptr == 0xAA) {
+        return false;
+    }
+    return true;
+}
 
-BuiltinMethod g_builtinMethod[11] = {{"exit", Exit},
+Value VMEnv(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    Value ret = Value::make_map();
+    if (IsBigEndianVM()) {
+        ret._map[Value("ByteOrder")] = "BigEndian";
+    } else {
+        ret._map[Value("ByteOrder")] = "LittleEndian";
+    }
+    ret._map["Size Of integer"] = Value(sizeof(Value::INTVAR));
+    ret._map["Engine Version"] = Value(VERSION);
+#ifdef __APPLE__
+    ret._map["OS"] = "Darwin";
+#endif
+#ifdef __WIN32__
+    ret._map["OS"] = "Windows";
+#endif
+#ifdef __LINUX__
+    ret._map["OS"] = "Linux";
+#endif
+    return ret;
+}
+
+int g_builtinMethod_size = 12;
+
+BuiltinMethod g_builtinMethod[12] = {{"exit", Exit},
                                      {"len", Len},
                                      {"append", Append},
                                      {"require", Require},
@@ -235,7 +265,8 @@ BuiltinMethod g_builtinMethod[11] = {{"exit", Exit},
                                      {"typeof", TypeOf},
                                      {"Println", Println},
                                      {"ToString", ToString},
-                                     {"BytesFromHexString", BytesFromHexString}};
+                                     {"BytesFromHexString", BytesFromHexString},
+                                     {"VMEnv", VMEnv}};
 
 bool IsFunctionOverwriteEnabled(const std::string& name) {
     for (int i = 0; i < 8; i++) {

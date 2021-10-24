@@ -121,7 +121,7 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
         return GetConstValue(ins->Refs[0]);
     case Instructions::kNewVar: {
         ctx->AddVar(ins->Name);
-        if (ins->Refs.size() == 1) {
+        if (ins->Refs.size()) {
             Value initValue = Execute(GetInstruction(ins->Refs[0]), ctx);
             ctx->SetVarValue(ins->Name, initValue);
             return initValue;
@@ -380,15 +380,15 @@ Value Executor::CallFunction(const Instruction* ins, scoped_refptr<VMContext> ct
             }
             iter++;
         }
-        Value val = method(actualValues, ctx, this);
+        Value val = method(actualValues, ctx.get(), this);
         return val;
     }
     const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
     const Instruction* body = GetInstruction(func->Refs[1]);
     const Instruction* actualParamerList = GetInstruction(ins->Refs[0]);
 
-    if (actualParamerList->Refs.size() != actualParamerList->Refs.size()) {
-        throw RuntimeException("actual parameters count not equal formal paramers");
+    if (formalParamersList->Refs.size() != actualParamerList->Refs.size()) {
+        throw RuntimeException("actual parameters count not equal formal paramers for func:"+ins->Name);
     }
     std::vector<const Instruction*> actualParamers = GetInstructions(actualParamerList->Refs);
     std::vector<Value> actualValues;
@@ -414,8 +414,8 @@ Value Executor::CallFunction(const Instruction* ins, scoped_refptr<VMContext> ct
     return val;
 }
 Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& args,
-                                   scoped_refptr<VMContext> ctx) {
-    scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
+                                   VMContext* ctx) {
+    scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx);
     const Instruction* func = ctx->GetFunction(name);
     const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
     const Instruction* body = GetInstruction(func->Refs[1]);

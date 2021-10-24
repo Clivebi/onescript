@@ -49,8 +49,8 @@ public:
     //null instruction do nothing
     Instruction* NULLObject();
     //instruction list
-    Instruction* CreateObjectList(Instruction* element);
-    Instruction* AddObjectToObjectList(Instruction* list, Instruction* element);
+    Instruction* CreateList(const std::string& typeName,Instruction* element);
+    Instruction* AddToList(Instruction* list, Instruction* element);
 
     //var declaration read & write
     Instruction* VarDeclarationExpresion(const std::string& name, Instruction* value);

@@ -53,9 +53,12 @@ const int kResource = 10;
 class Instruction;
 class Value {
 public:
+    typedef int64_t INTVAR;
+
+public:
     int Type;
     union {
-        long Integer;
+        INTVAR Integer;
         double Float;
     };
     std::string bytes;
@@ -107,8 +110,14 @@ public:
     Value(const char* val) : Type(ValueType::kString), bytes(val), Integer(0), resource(NULL) {}
     Value(const std::string& val)
             : Type(ValueType::kString), bytes(val), Integer(0), resource(NULL) {}
-    Value(const long& val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(const double& val) : Type(ValueType::kFloat), bytes(), Float(val), resource(NULL) {}
+    Value(long val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(unsigned long val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(INTVAR val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(int32_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(int16_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(uint32_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(uint16_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
+    Value(double val) : Type(ValueType::kFloat), bytes(), Float(val), resource(NULL) {}
     Value(const std::vector<Value>& val)
             : Type(ValueType::kArray), bytes(), Integer(0), _array(val), _map(), resource(NULL) {}
     Value(const std::map<Value, Value>& val)
@@ -308,9 +317,7 @@ public:
         }
     }
 
-    bool operator!=(const Value& right) const {
-        return !(*this == right);
-    }
+    bool operator!=(const Value& right) const { return !(*this == right); }
 
     Value operator|(const Value& right) const {
         if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
@@ -565,7 +572,7 @@ public:
             return result;
         }
         case ValueType::kInteger:
-            snprintf(buffer, 16, "%ld", Integer);
+            snprintf(buffer, 16, "%lld", Integer);
             return buffer;
         case ValueType::kNULL:
             return "nil";
@@ -612,9 +619,9 @@ public:
     }
 
 protected:
-    long ToInteger() const {
+    INTVAR ToInteger() const {
         if (Type == ValueType::kFloat) {
-            return (long)Float;
+            return (INTVAR)Float;
         }
         if (Type == ValueType::kInteger) {
             return Integer;

@@ -8,12 +8,12 @@
 #include "script.hpp"
 #include "value.hpp"
 #include "vmcontext.hpp"
-
+#define VERSION ("0.1")
 namespace Interpreter {
 
 class Executor;
 
-typedef Value (*RUNTIME_FUNCTION)(std::vector<Value>& values, scoped_refptr<VMContext> ctx,
+typedef Value (*RUNTIME_FUNCTION)(std::vector<Value>& values, VMContext* ctx,
                                   Executor* vm);
 
 typedef struct _BuiltinMethod {
@@ -33,8 +33,7 @@ public:
 public:
     bool Execute(scoped_refptr<Script> script, std::string& errmsg, bool showWarning = false);
     void RegisgerFunction(BuiltinMethod methods[], int count);
-    Value CallScriptFunction(const std::string& name, std::vector<Value>& value,
-                             scoped_refptr<VMContext> ctx);
+    Value CallScriptFunction(const std::string& name, std::vector<Value>& value,VMContext* ctx);
     void RequireScript(const std::string& name, scoped_refptr<VMContext> ctx);
 
 protected:
