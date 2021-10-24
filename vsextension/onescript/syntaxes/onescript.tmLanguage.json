@@ -14,6 +14,9 @@
 			"patterns": [{
 				"name": "keyword.control.onescript",
 				"match": "\\b(if|while|for|return|switch|case|in|func|bytes|string|var|break|continue|global|default|else if|else|true|false|len)\\b"
+			},{
+				"name":"keyword.other",
+				"match": "\\b(require|nil|typeof|append)"
 			}]
 		},
 		"strings": {

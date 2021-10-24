@@ -35,6 +35,7 @@ const Type kCreateArray = CODE_BASE + 17;
 const Type kSlice = CODE_BASE + 18;
 const Type kForInStatement = CODE_BASE + 19;
 const Type kSwitchCaseStatement = CODE_BASE + 20;
+const Type kMinus = CODE_BASE+21;
 
 const Type kArithmeticOP = 50;
 const Type kADD = kArithmeticOP + 1;

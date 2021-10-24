@@ -23,7 +23,8 @@ assertEqual(1+(1+2),4);
 assertEqual(1+2*4,9);
 assertEqual(4*(1+2),12);
 assertEqual(4*5/5,4);
-
+assertEqual(0-1000,-1000);
+assertEqual(5*(-10),-50);
 func test_basic_convert(){
     var i = 100,f = 3.1415;
     var res = i+f;
@@ -54,7 +55,7 @@ func test_basic_convert(){
     assertEqual(buf2,buf4);
 
     #convert hex string to bytes
-    var buf5= BytesFromHexString("68656C6C6F20776F726C64");
+    var buf5= HexDecodeString("68656C6C6F20776F726C64");
     var buf6= append(buf,0x20,buf4);
 
     assertEqual(buf5,buf6);
@@ -70,9 +71,26 @@ func test_basic_convert(){
     var str3 = str1 + " " +str2;
     assertEqual(str3,string(buf5));
     assertEqual(str1[0],'h');
+    
+    #convert string to integer & float
+    assertEqual(ToInteger("0xEEFFFF"),0xEEFFFF);
+    assertEqual(ToInteger("8000"),8000);
+    assertEqual(ToFloat("3.1415"),3.1415);
+    assertEqual(ToFloat("3"),3.0);
+    assertEqual(ToString(1000),"1000");
+    assertEqual(ToString(3.14),ToString(ToFloat("3.14")));
+    assertEqual(HexEncode(0xEEFFBB),"EEFFBB");
 }
 
 test_basic_convert();
+
+func asciiCodeToChar(code){
+    var test = bytes();
+    test = append(test,code);
+    return string(test);
+}
+
+assertEqual(asciiCodeToChar('A'),"A");
 
 func test_bitwise_operation(){
     assertEqual(0xFFEE & 0xFF,0xEE);
@@ -307,3 +325,35 @@ func test_bin_pack(){
 }
 
 test_bin_pack();
+
+func byteslib_test(){
+    var str = "!!! hello world !!!!!";
+    result = TrimString(str,"! ");
+    assertEqual(result,"hello world");
+    result = TrimLeftString(str,"! ");
+    assertEqual(result,"hello world !!!!!");
+    result = TrimRightString(str,"! ");
+    assertEqual(result,"!!! hello world");
+    assertEqual(ContainsString(str,"hello"),true);
+    assertEqual(IndexString(str,"hello"),4);
+    assertEqual(IndexString(str,"helloW"),-1);
+    assertEqual(LastIndexString(str,"o"),11);
+    assertEqual(ReplaceAllString(str,"!!! ",""),"hello world !!!!!");
+    assertEqual(ReplaceString(str,"!","",3)," hello world !!!!!");
+    assertEqual(ReplaceString(str,"!","",-1),ReplaceAllString(str,"!",""));
+    var list = RepeatString("hello ",5);
+    var list_array = SplitString(TrimString(list," ")," ");
+    assertEqual(len(list_array),5);
+    for v in list_array{
+        assertEqual(v,"hello");
+    }
+    assertEqual(ToLowerString("heLLo"),"hello");
+    assertEqual(ToUpperString("heLLo"),"HELLO");
+    assertEqual(HasPrefixString(str,"!!! X"),false);
+    assertEqual(HasSuffixString(str," !!!!!"),true);
+    assertEqual(HasPrefixString(str,"!!! "),true);
+    assertEqual(HasSuffixString(str," X!!!!!"),false);
+}
+
+byteslib_test();
+

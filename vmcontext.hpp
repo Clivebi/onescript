@@ -61,6 +61,8 @@ public:
     void AddFunction(const Instruction* function);
     const Instruction* GetFunction(const std::string& name);
 
+    Value GetTotalFunction();
+
 protected:
     void LoadBuiltinVar();
     bool IsBuiltinVarName(const std::string& name);

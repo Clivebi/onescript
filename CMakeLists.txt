@@ -50,4 +50,5 @@ add_executable(Interpreter
     vm.cc
     main.cc 
     vmcontext.cc 
+    modules/module.cc
 )

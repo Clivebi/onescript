@@ -27,7 +27,7 @@ Instruction* Parser::VarDeclarationExpresion(const std::string& name, Instructio
     Instruction* obj = mScript->NewInstruction();
     obj->OpCode = Instructions::kNewVar;
     obj->Name = name;
-    if(value != NULL){
+    if (value != NULL) {
         obj->Refs.push_back(value->key);
     }
     if (mLogInstruction) {
@@ -85,6 +85,15 @@ Instruction* Parser::CreateFunction(const std::string& name, Instruction* formal
     Instruction* obj = mScript->NewInstruction(formalParameters, body);
     obj->OpCode = Instructions::kNewFunction;
     obj->Name = name;
+    if (mLogInstruction) {
+        LOG(mScript->DumpInstruction(obj, ""));
+    }
+    return obj;
+}
+
+Instruction* Parser::CreateMinus(Instruction* val) {
+    Instruction* obj = mScript->NewInstruction(val);
+    obj->OpCode = Instructions::kMinus;
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
     }
@@ -186,7 +195,7 @@ Instruction* Parser::CreateContinueStatement() {
 Instruction* Parser::CreateMapItem(Instruction* key, Instruction* value) {
     Instruction* obj = mScript->NewInstruction(key, value);
     obj->OpCode = Instructions::kGroup;
-    obj->Name ="map-item";
+    obj->Name = "map-item";
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
     }

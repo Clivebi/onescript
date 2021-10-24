@@ -2,13 +2,14 @@
 
 #include "logger.hpp"
 
-extern int g_builtinMethod_size;
-extern Interpreter::BuiltinMethod g_builtinMethod[];
+void RegisgerEngineBuiltinMethod(Interpreter::Executor* vm);
+void RegisgerModulesBuiltinMethod(Interpreter::Executor* vm);
 
 namespace Interpreter {
 
 Executor::Executor(ExecutorCallback* callback) : mScriptList(), mCallback(callback) {
-    RegisgerFunction(g_builtinMethod, g_builtinMethod_size);
+    RegisgerEngineBuiltinMethod(this);
+    RegisgerModulesBuiltinMethod(this);
 }
 
 bool Executor::Execute(scoped_refptr<Script> script, std::string& errmsg, bool showWarning) {
@@ -62,6 +63,19 @@ void Executor::RequireScript(const std::string& name, scoped_refptr<VMContext> c
     }
 }
 
+Value Executor::GetAvailableFunction(VMContext* ctx) {
+    std::vector<Value> builtin;
+    std::map<std::string, RUNTIME_FUNCTION>::iterator iter = mBuiltinMethods.begin();
+    while (iter != mBuiltinMethods.end()) {
+        builtin.push_back(Value(iter->first));
+        iter++;
+    }
+    Value result = Value::make_map();
+    result._map[Value("script")] = ctx->GetTotalFunction();
+    result._map[Value("builtin")] = builtin;
+    return result;
+}
+
 const Instruction* Executor::GetInstruction(Instruction::keyType key) {
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
     while (iter != mScriptList.end()) {
@@ -76,7 +90,7 @@ const Instruction* Executor::GetInstruction(Instruction::keyType key) {
 }
 
 std::vector<const Instruction*> Executor::GetInstructions(std::vector<Instruction::keyType> keys) {
-    if(keys.size()==0){
+    if (keys.size() == 0) {
         return std::vector<const Instruction*>();
     }
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
@@ -130,6 +144,19 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     }
     case Instructions::kReadVar:
         return ctx->GetVarValue(ins->Name);
+    case Instructions::kMinus: {
+        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
+        switch (val.Type) {
+        case ValueType::kInteger:
+            val.Integer = (-val.Integer);
+            return val;
+        case ValueType::kFloat:
+            val.Float = (-val.Float);
+            return val;
+        default:
+            throw RuntimeException("minus operation only can applay to integer or float");
+        }
+    }
     case Instructions::kWriteVar: {
         Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         ctx->SetVarValue(ins->Name, val);
@@ -255,7 +282,7 @@ Value Executor::ExecuteXUpdate(const Instruction* ins, scoped_refptr<VMContext> 
     default:
         LOG("Unknown Instruction:" + ins->ToString());
     }
-    ctx->SetVarValue(ins->Name,oldVal);
+    ctx->SetVarValue(ins->Name, oldVal);
     return oldVal;
 }
 
@@ -388,7 +415,8 @@ Value Executor::CallFunction(const Instruction* ins, scoped_refptr<VMContext> ct
     const Instruction* actualParamerList = GetInstruction(ins->Refs[0]);
 
     if (formalParamersList->Refs.size() != actualParamerList->Refs.size()) {
-        throw RuntimeException("actual parameters count not equal formal paramers for func:"+ins->Name);
+        throw RuntimeException("actual parameters count not equal formal paramers for func:" +
+                               ins->Name);
     }
     std::vector<const Instruction*> actualParamers = GetInstructions(actualParamerList->Refs);
     std::vector<Value> actualValues;

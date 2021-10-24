@@ -71,6 +71,8 @@ public:
     //arithmetic operation +-*/% ,> >= < <= == !=
     Instruction* CreateArithmeticOperation(Instruction* first, Instruction* second, int opcode);
 
+    Instruction* CreateMinus(Instruction* value);
+
     //condition expresion such as if else if
     Instruction* CreateConditionExpresion(Instruction* condition, Instruction* action);
 

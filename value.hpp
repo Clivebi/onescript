@@ -558,18 +558,23 @@ public:
         }
     }
 
+    static std::string HexEncode(const char* buf, int count) {
+        char buffer[6] = {0};
+        std::string result = "";
+        for (size_t i = 0; i < count; i++) {
+            snprintf(buffer, 6, "%02X", buf[i]);
+            result += buffer;
+        }
+        return result;
+    }
+
     std::string ToString() const {
         char buffer[16] = {0};
         switch (Type) {
         case ValueType::kString:
             return bytes;
         case ValueType::kBytes: {
-            std::string result = "";
-            for (size_t i = 0; i < bytes.size(); i++) {
-                snprintf(buffer, 16, "%02X", bytes[i]);
-                result += buffer;
-            }
-            return result;
+            return HexEncode(bytes.c_str(),bytes.size());
         }
         case ValueType::kInteger:
             snprintf(buffer, 16, "%lld", Integer);

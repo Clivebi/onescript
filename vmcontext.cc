@@ -173,11 +173,24 @@ const Instruction* VMContext::GetFunction(const std::string& name) {
     }
     std::map<std::string, const Instruction*>::iterator iter = ctx->mFunctions.find(name);
     if (iter == ctx->mFunctions.end()) {
-        if (mParent != NULL) {
-            return mParent->GetFunction(name);
-        }
         return NULL;
     }
     return iter->second;
 }
+
+Value VMContext::GetTotalFunction() {
+    VMContext* ctx = this;
+    while (ctx->mParent != NULL) {
+        ctx = ctx->mParent;
+    }
+    std::vector<Value> functions;
+    std::map<std::string, const Instruction*>::iterator iter = ctx->mFunctions.begin();
+    while (iter != ctx->mFunctions.end())
+    {
+        functions.push_back(Value(iter->first));
+        iter++;
+    }
+    return Value(functions);
+}
+
 } // namespace Interpreter

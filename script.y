@@ -52,6 +52,8 @@ void yyerror(Interpreter::Parser * parser,const char *s);
 %right NOT INC DEC BNG
 %left LP RP
 
+%nonassoc '|' UMINUS
+
 
 %type <object> declaration declarationlist var_declaration
 %type <object> declaration_and_assign declaration_and_assign_list var_declaration_and_assign
@@ -368,6 +370,10 @@ value_expression: const_value
         |slice
         {
                 $$=$1;
+        }
+        | SUB value_expression %prec UMINUS
+        {
+                $$=parser->CreateMinus($2);
         }
         ;
 

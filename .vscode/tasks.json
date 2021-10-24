@@ -15,6 +15,7 @@
                 "${workspaceFolder}/script.lex.cpp",
                 "${workspaceFolder}/vm.cc",
                 "${workspaceFolder}/vmcontext.cc",
+                "${workspaceFolder}/modules/module.cc",
                 "-o",
                 "${workspaceFolder}/Interpreter",
             ],

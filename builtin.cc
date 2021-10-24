@@ -2,8 +2,15 @@
 
 #include "vm.hpp"
 
+#define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
+
 using namespace Interpreter;
 
+#define CHECK_PARAMETER_COUNT(args, count)                              \
+    if (args.size() < count) {                                          \
+        throw RuntimeException(std::string(__FUNCTION__) +              \
+                               ": the count of parameters not enough"); \
+    }
 Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     std::string result;
     for (std::vector<Value>::iterator iter = values.begin(); iter != values.end(); iter++) {
@@ -14,21 +21,21 @@ Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     return Value();
 }
 
-Value Len(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value len(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
     Value& arg = values.front();
-    assert(values.size() == 1);
     return Value((long)arg.length());
 }
 
 Value TypeOf(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
     Value& arg = values.front();
-    assert(values.size() == 1);
     return Value(arg.TypeName());
 }
 
 Value ToString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
     Value& arg = values.front();
-    assert(values.size() == 1);
     return Value(arg.ToString());
 }
 
@@ -38,7 +45,6 @@ bool IsIntegerArray(const std::vector<Value>& values) {
         if (iter->Type != ValueType::kInteger) {
             return false;
         }
-
         iter++;
     }
     return true;
@@ -52,7 +58,8 @@ void AppendIntegerArrayToBytes(Value& val, const std::vector<Value>& values) {
     }
 }
 
-Value Append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+Value append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
     Value to = values.front();
     if (to.Type == ValueType::kArray) {
         std::vector<Value>::iterator iter = values.begin();
@@ -76,12 +83,12 @@ Value Append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
                 break;
             case ValueType::kArray:
                 if (!IsIntegerArray(iter->_array)) {
-                    throw RuntimeException("only Integer Array can append to bytes");
+                    throw RuntimeException("only integer array can append to bytes");
                 }
                 AppendIntegerArrayToBytes(to, iter->_array);
                 break;
             default:
-                throw RuntimeException("some value can't append to bytes");
+                throw RuntimeException(iter->ToString() + " can't append to bytes");
             }
             iter++;
         }
@@ -90,40 +97,34 @@ Value Append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     throw RuntimeException("first append value must an array or bytes");
 }
 
-Value Close(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
-    if (values.size() != 1) {
-        throw RuntimeException("Close invalid parameter count");
-    }
+Value close(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
     Value res = values.front();
     if (res.Type != ValueType::kResource) {
-        throw RuntimeException("Close invalid parameter type");
+        throw RuntimeException("close parameter must a resource");
     }
     res.resource->Close();
     return Value();
 }
 
 Value Exit(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
-    if (values.size() != 1) {
-        throw RuntimeException("exit invalid parameter count");
-    }
+    CHECK_PARAMETER_COUNT(values, 1);
     Value exitCode = values.front();
     if (exitCode.Type != ValueType::kInteger) {
-        throw RuntimeException("exit code parameter type must a integer");
+        throw RuntimeException("exit parameter must a integer");
     }
     ctx->ExitExecuted(exitCode);
     return Value();
 }
 
 Value Require(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
-    if (values.size() != 1) {
-        throw RuntimeException("require invalid parameter count");
-    }
+    CHECK_PARAMETER_COUNT(values, 1);
     if (!ctx->IsTop()) {
         throw RuntimeException("require must called in top context");
     }
     Value name = values.front();
     if (name.Type != ValueType::kString) {
-        throw RuntimeException("require code parameter type must a integer");
+        throw RuntimeException("require parameter must a string");
     }
     vm->RequireScript(name.bytes, ctx);
     return Value();
@@ -139,7 +140,7 @@ Value MakeBytes(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
         }
         if (values[0].Type == ValueType::kArray) {
             if (!IsIntegerArray(values[0]._array)) {
-                throw RuntimeException("make bytes must use Integer Array");
+                throw RuntimeException("make bytes must use integer array");
             }
             Value ret = Value::make_bytes("");
             AppendIntegerArrayToBytes(ret, values[0]._array);
@@ -147,7 +148,7 @@ Value MakeBytes(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
         }
     }
     if (!IsIntegerArray(values)) {
-        throw RuntimeException("make bytes must use Integer");
+        throw RuntimeException("make bytes must use integer array");
     }
     Value ret = Value::make_bytes("");
     AppendIntegerArrayToBytes(ret, values);
@@ -167,7 +168,7 @@ Value MakeString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
         }
         if (values[0].Type == ValueType::kArray) {
             if (!IsIntegerArray(values[0]._array)) {
-                throw RuntimeException("convert to string must use Integer Array");
+                throw RuntimeException("convert to string must use integer array");
             }
             Value ret = Value::make_bytes("");
             AppendIntegerArrayToBytes(ret, values[0]._array);
@@ -176,7 +177,7 @@ Value MakeString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
         }
     }
     if (!IsIntegerArray(values)) {
-        throw RuntimeException("convert to string must use Integer Array or Bytes");
+        throw RuntimeException("convert to string must use integer array");
     }
     Value ret = Value::make_bytes("");
     AppendIntegerArrayToBytes(ret, values);
@@ -197,16 +198,14 @@ bool IsHexChar(char c) {
     return false;
 }
 
-Value BytesFromHexString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
-    if (values.size() != 1) {
-        throw RuntimeException("BytesFromHexString invalid parameter count");
-    }
+Value HexDecodeString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
     Value& arg = values.front();
     if (arg.Type != ValueType::kString) {
-        throw RuntimeException("BytesFromHexString invalid parameter type");
+        throw RuntimeException("HexDecodeString parameter must a string");
     }
     if (arg.length() % 2 || arg.length() == 0) {
-        throw RuntimeException("BytesFromHexString string length must be a multiple of 2");
+        throw RuntimeException("HexDecodeString string length must be a multiple of 2");
     }
     size_t i = 0;
     char buf[3] = {0};
@@ -215,12 +214,66 @@ Value BytesFromHexString(std::vector<Value>& values, VMContext* ctx, Executor* v
         buf[0] = arg.bytes[i];
         buf[1] = arg.bytes[i + 1];
         if (!IsHexChar(buf[0]) || !IsHexChar(buf[1])) {
-            throw RuntimeException("BytesFromHexString is not a valid hex string");
+            throw RuntimeException("HexDecodeString parameter string is not a valid hex string");
         }
         unsigned char val = strtol(buf, NULL, 16);
         result.append(1, val);
     }
     return Value::make_bytes(result);
+}
+
+Value HexEncode(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    char buf[16] = {0};
+    CHECK_PARAMETER_COUNT(values, 1);
+    Value& arg = values.front();
+    switch (arg.Type) {
+    case ValueType::kBytes:
+        return Value(arg.ToString());
+    case ValueType::kString:
+        return Value(Value::HexEncode(arg.bytes.c_str(), arg.bytes.size()));
+    case ValueType::kInteger:
+        snprintf(buf, 16, "%llX", arg.Integer);
+        return Value(buf);
+    default:
+        break;
+    }
+    throw RuntimeException("HexEncode unsupported parameter type<" + arg.TypeName() + ">");
+}
+
+Value ToInteger(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
+    Value& arg = values.front();
+    switch (arg.Type) {
+    case ValueType::kInteger:
+        return arg;
+    case ValueType::kFloat:
+        return Value((Value::INTVAR)arg.Float);
+    case ValueType::kString:
+    case ValueType::kBytes: {
+        Value::INTVAR val = strtoll(arg.bytes.c_str(), NULL, 0);
+        return Value(val);
+    }
+    default:
+        return Value((__LONG_LONG_MAX__));
+    }
+}
+
+Value ToFloat(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    CHECK_PARAMETER_COUNT(values, 1);
+    Value& arg = values.front();
+    switch (arg.Type) {
+    case ValueType::kInteger:
+        return Value((double)arg.Integer);
+    case ValueType::kFloat:
+        return arg;
+    case ValueType::kString:
+    case ValueType::kBytes: {
+        double val = strtod(arg.bytes.c_str(), NULL);
+        return Value(val);
+    }
+    default:
+        return Value((double)0.0);
+    }
 }
 
 bool IsBigEndianVM() {
@@ -253,26 +306,36 @@ Value VMEnv(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     return ret;
 }
 
-int g_builtinMethod_size = 12;
+Value GetAvaliableFunction(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
+    return vm->GetAvailableFunction(ctx);
+}
 
-BuiltinMethod g_builtinMethod[12] = {{"exit", Exit},
-                                     {"len", Len},
-                                     {"append", Append},
-                                     {"require", Require},
-                                     {"bytes", MakeBytes},
-                                     {"string", MakeString},
-                                     {"close", Close},
-                                     {"typeof", TypeOf},
-                                     {"Println", Println},
-                                     {"ToString", ToString},
-                                     {"BytesFromHexString", BytesFromHexString},
-                                     {"VMEnv", VMEnv}};
+BuiltinMethod builtinFunction[] = {{"exit", Exit},
+                                   {"len", len},
+                                   {"append", append},
+                                   {"require", Require},
+                                   {"bytes", MakeBytes},
+                                   {"string", MakeString},
+                                   {"close", close},
+                                   {"typeof", TypeOf},
+                                   {"Println", Println},
+                                   {"ToString", ToString},
+                                   {"ToInteger", ToInteger},
+                                   {"ToFloat", ToFloat},
+                                   {"HexDecodeString", HexDecodeString},
+                                   {"HexEncode", HexEncode},
+                                   {"VMEnv", VMEnv},
+                                   {"GetAvaliableFunction", GetAvaliableFunction}};
 
 bool IsFunctionOverwriteEnabled(const std::string& name) {
     for (int i = 0; i < 8; i++) {
-        if (g_builtinMethod[i].name == name) {
+        if (builtinFunction[i].name == name) {
             return false;
         }
     }
     return true;
+}
+
+void RegisgerEngineBuiltinMethod(Executor* vm) {
+    vm->RegisgerFunction(builtinFunction, COUNT_OF(builtinFunction));
 }
