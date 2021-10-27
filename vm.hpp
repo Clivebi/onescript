@@ -40,11 +40,13 @@ protected:
     Value Execute(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteList(std::vector<const Instruction*> insList, scoped_refptr<VMContext> ctx);
     Value CallFunction(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value CallRutimeFunction(const Instruction* ins, scoped_refptr<VMContext> ctx,RUNTIME_FUNCTION method);
+    Value CallScriptFunction(const Instruction* ins, scoped_refptr<VMContext> ctx,const Instruction*func);
     Value ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteForStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr<VMContext> ctx);
-    Value ExecuteXUpdate(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteUpdateVar(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ctx);

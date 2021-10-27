@@ -65,6 +65,7 @@ public:
     std::vector<Value> _array;
     std::map<Value, Value> _map;
     Resource_ptr resource;
+
     Value(bool val) : Type(ValueType::kInteger), resource(NULL) {
         Integer = 0;
         if (val) {
@@ -91,7 +92,10 @@ public:
     }
     Value(const Value& right) : resource(NULL) {
         Type = right.Type;
-        Integer = right.Integer;
+        Float = right.Float;
+        if(Type == ValueType::kInteger){
+            Integer = right.Integer;
+        }
         bytes = right.bytes;
         _map = right._map;
         _array = right._array;
@@ -99,7 +103,10 @@ public:
     }
     Value& operator=(const Value& right) {
         Type = right.Type;
-        Integer = right.Integer;
+        Float = right.Float;
+        if(Type == ValueType::kInteger){
+            Integer = right.Integer;
+        }
         bytes = right.bytes;
         _map = right._map;
         _array = right._array;
@@ -341,27 +348,27 @@ public:
     }
     Value operator<<(const Value& right) const {
         if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("^ operation only can used on Integer ");
+            throw RuntimeException("<< operation only can used on Integer ");
         }
         return Value(Integer << right.Integer);
     }
     Value operator>>(const Value& right) const {
         if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("^ operation only can used on Integer ");
+            throw RuntimeException(">> operation only can used on Integer ");
         }
         return Value(Integer >> right.Integer);
     }
 
     const Value& operator<<=(const Value& right) {
         if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("^ operation only can used on Integer ");
+            throw RuntimeException("<<= operation only can used on Integer ");
         }
         Integer <<= right.Integer;
         return *this;
     }
     const Value& operator>>=(const Value& right) {
         if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("^ operation only can used on Integer ");
+            throw RuntimeException(">>= operation only can used on Integer ");
         }
         Integer >>= right.Integer;
         return *this;

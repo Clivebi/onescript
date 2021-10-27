@@ -125,8 +125,8 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     if (ins->OpCode >= Instructions::kADD && ins->OpCode <= Instructions::kMAXArithmeticOP) {
         return ExecuteArithmeticOperation(ins, ctx);
     }
-    if (ins->OpCode >= Instructions::kADDWrite && ins->OpCode <= Instructions::kRSHIFTWrite) {
-        return ExecuteXUpdate(ins, ctx);
+    if (ins->OpCode >= Instructions::kWrite && ins->OpCode <= Instructions::kRSHIFTWrite) {
+        return ExecuteUpdateVar(ins, ctx);
     }
     switch (ins->OpCode) {
     case Instructions::kNop:
@@ -156,11 +156,6 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
         default:
             throw RuntimeException("minus operation only can applay to integer or float");
         }
-    }
-    case Instructions::kWriteVar: {
-        Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
-        ctx->SetVarValue(ins->Name, val);
-        return Value();
     }
     case Instructions::kNewFunction: {
         ctx->AddFunction(ins);
@@ -233,12 +228,16 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     }
 }
 
-Value Executor::ExecuteXUpdate(const Instruction* ins, scoped_refptr<VMContext> ctx) {
-    Value oldVal = ctx->GetVarValue(ins->Name);
+Value Executor::ExecuteUpdateVar(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     Value val;
     if (ins->Refs.size()) {
         val = Execute(GetInstruction(ins->Refs[0]), ctx);
     }
+    if (ins->OpCode == Instructions::kWrite) {
+        ctx->SetVarValue(ins->Name, val);
+        return Value();
+    }
+    Value oldVal = ctx->GetVarValue(ins->Name);
     switch (ins->OpCode) {
     case Instructions::kADDWrite:
         oldVal += val;
@@ -389,55 +388,57 @@ Value Executor::ExecuteList(std::vector<const Instruction*> insList, scoped_refp
 }
 
 Value Executor::CallFunction(const Instruction* ins, scoped_refptr<VMContext> ctx) {
-    scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx.get());
     const Instruction* func = ctx->GetFunction(ins->Name);
     if (func == NULL) {
         RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
         if (method == NULL) {
             throw RuntimeException("call unknown function name:" + ins->Name);
         }
-        const Instruction* actualParamerList = GetInstruction(ins->Refs[0]);
-        std::vector<Value> actualValues;
-        std::vector<const Instruction*> actualParamers = GetInstructions(actualParamerList->Refs);
-        std::vector<const Instruction*>::iterator iter = actualParamers.begin();
-        while (iter != actualParamers.end()) {
-            actualValues.push_back(Execute(*iter, ctx));
-            if (ctx->IsExecutedInterupt()) {
-                return Value();
-            }
+        return CallRutimeFunction(ins, ctx, method);
+    }
+    return CallScriptFunction(ins, ctx, func);
+}
+
+Value Executor::CallRutimeFunction(const Instruction* ins, scoped_refptr<VMContext> ctx,
+                                   RUNTIME_FUNCTION method) {
+    std::vector<Value> actualValues;
+    if (ins->Refs.size() == 1) {
+        actualValues = InstructionToValue(GetInstructions(GetInstruction(ins->Refs[0])->Refs), ctx);
+    }
+    if (ctx->IsExecutedInterupt()) {
+        return ctx->GetReturnValue();
+    }
+    Value val = method(actualValues, ctx.get(), this);
+    return val;
+}
+
+Value Executor::CallScriptFunction(const Instruction* ins, scoped_refptr<VMContext> ctx,
+                                   const Instruction* func) {
+    std::vector<Value> actualValues;
+    scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx);
+    if (ins->Refs.size() == 1) {
+        actualValues = InstructionToValue(GetInstructions(GetInstruction(ins->Refs[0])->Refs), ctx);
+    }
+    if (ctx->IsExecutedInterupt()) {
+        return ctx->GetReturnValue();
+    }
+    if (func->Refs.size() == 2) {
+        std::vector<const Instruction*> formalParamers =
+                GetInstructions(GetInstruction(func->Refs[1])->Refs);
+        if (formalParamers.size() != actualValues.size()) {
+            throw RuntimeException("actual parameters count not equal formal paramers for func:" +
+                                   ins->Name);
+        }
+        std::vector<const Instruction*>::iterator iter = formalParamers.begin();
+        int i = 0;
+        while (iter != formalParamers.end()) {
+            Execute(*iter, newCtx);
+            newCtx->SetVarValue((*iter)->Name, actualValues[i]);
+            i++;
             iter++;
         }
-        Value val = method(actualValues, ctx.get(), this);
-        return val;
     }
-    const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
-    const Instruction* body = GetInstruction(func->Refs[1]);
-    const Instruction* actualParamerList = GetInstruction(ins->Refs[0]);
-
-    if (formalParamersList->Refs.size() != actualParamerList->Refs.size()) {
-        throw RuntimeException("actual parameters count not equal formal paramers for func:" +
-                               ins->Name);
-    }
-    std::vector<const Instruction*> actualParamers = GetInstructions(actualParamerList->Refs);
-    std::vector<Value> actualValues;
-    std::vector<const Instruction*>::iterator iter = actualParamers.begin();
-    while (iter != actualParamers.end()) {
-        actualValues.push_back(Execute(*iter, ctx));
-        if (ctx->IsExecutedInterupt()) {
-            return Value();
-        }
-        iter++;
-    }
-    std::vector<const Instruction*> formalParamers = GetInstructions(formalParamersList->Refs);
-    iter = formalParamers.begin();
-    int i = 0;
-    while (iter != formalParamers.end()) {
-        Execute(*iter, newCtx);
-        newCtx->SetVarValue((*iter)->Name, actualValues[i]);
-        i++;
-        iter++;
-    }
-    Execute(body, newCtx);
+    Execute(GetInstruction(func->Refs[0]), newCtx);
     Value val = newCtx->GetReturnValue();
     return val;
 }
@@ -445,20 +446,21 @@ Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& 
                                    VMContext* ctx) {
     scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx);
     const Instruction* func = ctx->GetFunction(name);
-    const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
-    const Instruction* body = GetInstruction(func->Refs[1]);
-
-    if (args.size() != formalParamersList->Refs.size()) {
-        throw RuntimeException("actual parameters count not equal formal paramers");
-    }
-    std::vector<const Instruction*> formalParamers = GetInstructions(formalParamersList->Refs);
-    std::vector<const Instruction*>::iterator iter = formalParamers.begin();
-    int i = 0;
-    while (iter != formalParamers.end()) {
-        Execute(*iter, ctx);
-        newCtx->SetVarValue((*iter)->Name, args[i]);
-        i++;
-        iter++;
+    const Instruction* body = GetInstruction(func->Refs[0]);
+    if (func->Refs.size() == 2) {
+        const Instruction* formalParamersList = GetInstruction(func->Refs[0]);
+        if (args.size() != formalParamersList->Refs.size()) {
+            throw RuntimeException("actual parameters count not equal formal paramers");
+        }
+        std::vector<const Instruction*> formalParamers = GetInstructions(formalParamersList->Refs);
+        std::vector<const Instruction*>::iterator iter = formalParamers.begin();
+        int i = 0;
+        while (iter != formalParamers.end()) {
+            Execute(*iter, ctx);
+            newCtx->SetVarValue((*iter)->Name, args[i]);
+            i++;
+            iter++;
+        }
     }
     Execute(body, newCtx);
     Value val = newCtx->GetReturnValue();
@@ -611,6 +613,9 @@ std::vector<Value> Executor::InstructionToValue(std::vector<const Instruction*> 
     std::vector<const Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
         result.push_back(Execute(*iter, ctx));
+        if (ctx->IsExecutedInterupt()) {
+            break;
+        }
         iter++;
     }
     return result;

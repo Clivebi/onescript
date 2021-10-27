@@ -18,7 +18,7 @@ const Type kNop = 0;
 const Type kConst = CODE_BASE + 1;
 const Type kNewVar = CODE_BASE + 2;
 const Type kReadVar = CODE_BASE + 3;
-const Type kWriteVar = CODE_BASE + 4;
+//const Type kWriteVar = CODE_BASE + 4;
 const Type kNewFunction = CODE_BASE + 5;
 const Type kCallFunction = CODE_BASE + 6;
 const Type kReadAt = CODE_BASE + 7;
@@ -37,7 +37,7 @@ const Type kForInStatement = CODE_BASE + 19;
 const Type kSwitchCaseStatement = CODE_BASE + 20;
 const Type kMinus = CODE_BASE+21;
 
-const Type kArithmeticOP = 50;
+const Type kArithmeticOP = 40;
 const Type kADD = kArithmeticOP + 1;
 const Type kSUB = kArithmeticOP + 2;
 const Type kMUL = kArithmeticOP + 3;
@@ -60,6 +60,7 @@ const Type kOR = kArithmeticOP + 19;
 const Type kAND = kArithmeticOP + 20;
 const Type kMAXArithmeticOP = kArithmeticOP + 20;
 
+const Type kWrite    = 70;
 const Type kADDWrite = 71;
 const Type kSUBWrite = 72;
 const Type kMULWrite = 73;
@@ -136,7 +137,7 @@ public:
         if (OpCode >= Instructions::kADD && OpCode <= Instructions::kMAXArithmeticOP) {
             return "Arithmetic Operation";
         }
-        if (OpCode >= Instructions::kADDWrite && OpCode <= Instructions::kRSHIFTWrite) {
+        if (OpCode >= Instructions::kWrite && OpCode <= Instructions::kRSHIFTWrite) {
             return "Update Var:" + Name;
         }
         switch (OpCode) {
@@ -148,8 +149,6 @@ public:
             return "Create Var:" + Name;
         case Instructions::kReadVar:
             return "Read Var:" + Name;
-        case Instructions::kWriteVar:
-            return "Write Var:" + Name;
         case Instructions::kNewFunction:
             return "Create Function:" + Name;
         case Instructions::kCallFunction:
@@ -370,7 +369,7 @@ public:
         if (ins->OpCode >= Instructions::kADD && ins->OpCode <= Instructions::kMAXArithmeticOP) {
             return;
         }
-        if (ins->OpCode >= Instructions::kADDWrite && ins->OpCode <= Instructions::kRSHIFTWrite) {
+        if (ins->OpCode >= Instructions::kWrite && ins->OpCode <= Instructions::kRSHIFTWrite) {
             return;
         }
         switch (ins->OpCode) {
@@ -381,8 +380,6 @@ public:
         case Instructions::kNewVar:
             return;
         case Instructions::kReadVar:
-            return;
-        case Instructions::kWriteVar:
             return;
         case Instructions::kNewFunction: {
             o << "func " << Name << "( ";

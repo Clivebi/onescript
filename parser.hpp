@@ -54,7 +54,6 @@ public:
 
     //var declaration read & write
     Instruction* VarDeclarationExpresion(const std::string& name, Instruction* value);
-    Instruction* VarWriteExpresion(const std::string& name, Instruction* value);
     Instruction* VarUpdateExpression(const std::string& name, Instruction* value, int opcode);
     Instruction* VarReadExpresion(const std::string& name);
 

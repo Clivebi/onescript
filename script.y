@@ -464,7 +464,7 @@ compare_expression:value_expression EQ value_expression
 
 assign_expression: IDENTIFIER ASSIGN value_expression
         {       
-                $$=parser->VarWriteExpresion($1,$3);
+                $$=parser->VarUpdateExpression($1,$3,Interpreter::Instructions::kWrite);
         }
         |IDENTIFIER ADDASSIGN value_expression
         {

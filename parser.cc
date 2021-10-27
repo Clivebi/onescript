@@ -36,15 +36,6 @@ Instruction* Parser::VarDeclarationExpresion(const std::string& name, Instructio
     return obj;
 }
 
-Instruction* Parser::VarWriteExpresion(const std::string& name, Instruction* value) {
-    Instruction* obj = mScript->NewInstruction(value);
-    obj->OpCode = Instructions::kWriteVar;
-    obj->Name = name;
-    if (mLogInstruction) {
-        LOG(mScript->DumpInstruction(obj, ""));
-    }
-    return obj;
-}
 Instruction* Parser::VarUpdateExpression(const std::string& name, Instruction* value, int opcode) {
     Instruction* obj = mScript->NewInstruction();
     if (value != NULL) {
@@ -79,11 +70,24 @@ Instruction* Parser::CreateConst(double value) {
 
 Instruction* Parser::CreateFunction(const std::string& name, Instruction* formalParameters,
                                     Instruction* body) {
-    if (formalParameters == NULL) {
-        formalParameters = NULLObject();
+    Instruction* obj = mScript->NewInstruction(body);
+    if (formalParameters != NULL) {
+        obj->Refs.push_back(formalParameters->key);
     }
-    Instruction* obj = mScript->NewInstruction(formalParameters, body);
     obj->OpCode = Instructions::kNewFunction;
+    obj->Name = name;
+    if (mLogInstruction) {
+        LOG(mScript->DumpInstruction(obj, ""));
+    }
+    return obj;
+}
+
+Instruction* Parser::CreateFunctionCall(const std::string& name, Instruction* actualParameters) {
+    Instruction* obj = mScript->NewInstruction();
+    if(actualParameters != NULL){
+        obj->Refs.push_back(actualParameters->key);
+    }
+    obj->OpCode = Instructions::kCallFunction;
     obj->Name = name;
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
@@ -100,28 +104,16 @@ Instruction* Parser::CreateMinus(Instruction* val) {
     return obj;
 }
 
-Instruction* Parser::CreateFunctionCall(const std::string& name, Instruction* actualParameters) {
-    if (actualParameters == NULL) {
-        actualParameters = NULLObject();
-    }
-    Instruction* obj = mScript->NewInstruction(actualParameters);
-    obj->OpCode = Instructions::kCallFunction;
-    obj->Name = name;
-    if (mLogInstruction) {
-        LOG(mScript->DumpInstruction(obj, ""));
-    }
-    return obj;
-}
 Instruction* Parser::CreateArithmeticOperation(Instruction* first, Instruction* second,
                                                int opcode) {
     if (opcode < Instructions::kADD || opcode > Instructions::kMAXArithmeticOP) {
         throw RuntimeException("opcode not invalid");
         return NULL;
     }
-    if (second == NULL) {
-        second = NULLObject();
+    Instruction* obj = mScript->NewInstruction(first);
+    if (second != NULL) {
+        obj->Refs.push_back(second->key);
     }
-    Instruction* obj = mScript->NewInstruction(first, second);
     obj->OpCode = opcode;
     if (mLogInstruction) {
         LOG(mScript->DumpInstruction(obj, ""));
