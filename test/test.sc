@@ -1,6 +1,8 @@
 
 #test help function
 
+Println(VMEnv());
+Println(GetAvaliableFunction());
 var _is_test_passed = true;
 func assertEqual(a,b){
     if(a != b){
@@ -25,6 +27,9 @@ assertEqual(4*(1+2),12);
 assertEqual(4*5/5,4);
 assertEqual(0-1000,-1000);
 assertEqual(5*(-10),-50);
+assertNotEqual(nil,false);
+assertNotEqual(true,nil);
+assertNotEqual(true,false);
 func test_basic_convert(){
     var i = 100,f = 3.1415;
     var res = i+f;
@@ -356,4 +361,10 @@ func byteslib_test(){
 }
 
 byteslib_test();
+
+if(_is_test_passed){
+    Println("all test passed");
+}else{
+    Println("some test not passed");
+}
 

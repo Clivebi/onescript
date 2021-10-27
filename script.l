@@ -136,6 +136,9 @@ int yywrap(void)
 <STRING_LITERAL_STATE>\n        {
     parser->AppendToScanningString('\n');
 }
+<STRING_LITERAL_STATE>\\r        {
+    parser->AppendToScanningString('\r');
+}
 <STRING_LITERAL_STATE>\\\"      parser->AppendToScanningString('"');
 <STRING_LITERAL_STATE>\\n       parser->AppendToScanningString('\n');
 <STRING_LITERAL_STATE>\\t       parser->AppendToScanningString('\t');

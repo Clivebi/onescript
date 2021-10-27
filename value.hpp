@@ -455,7 +455,7 @@ public:
         }
         if (t.Type == ValueType::kNULL) {
             to = length();
-        } else if (f.Type == ValueType::kInteger) {
+        } else if (t.Type == ValueType::kInteger) {
             to = t.Integer;
         } else {
             throw RuntimeException("the index key type must a Integer");

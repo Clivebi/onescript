@@ -2,4 +2,4 @@
 
 #include <iostream>
 
-#define LOG(msg)  (std::cout<<__FUNCTION__<<":"<<__LINE__<<" "<<msg<<std::endl) 
+#define LOG(msg)  (std::cout<<__FUNCTION__<<":"<<__LINE__<<"\t"<<msg<<std::endl) 
