@@ -95,6 +95,7 @@
         "any": "cpp",
         "csignal": "cpp",
         "future": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "parser.h": "c"
     }
 }

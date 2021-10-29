@@ -13,6 +13,51 @@
 #include "logger.hpp"
 
 namespace Interpreter {
+inline std::list<std::string> split(const std::string& text, char split_char) {
+    std::list<std::string> result;
+    std::string part = "";
+    std::string::const_iterator iter = text.begin();
+    while (iter != text.end()) {
+        if (*iter == split_char) {
+            result.push_back(part);
+            part = "";
+            iter++;
+            continue;
+        }
+        part += (*iter);
+        iter++;
+    }
+    result.push_back(part);
+    return result;
+}
+
+inline std::string HTMLEscape(const std::string& src) {
+    const char* hex = "0123456789abcdef";
+    std::stringstream o;
+    int start = 0;
+    for (size_t i = 0; i < src.size(); i++) {
+        int c = src[i];
+        if (c == '<' || c == '>' || c == '&') {
+            o << "\\u00";
+            o << hex[c >> 4];
+            o << hex[c & 0xF];
+            start = i + 1;
+        }
+        if (c == 0xE2 && i + 2 < src.size() && (int)src[i + 1] == 0x80 &&
+            (src[i + 2] & (src[i + 2] ^ 1)) == 0xA8) {
+            if (start < i) {
+                o << src.substr(start, i - start);
+            }
+            o << "\\u202";
+            o << hex[src[i + 2] & 0xF];
+            start = i + 3;
+        }
+    }
+    if(start < src.size()){
+        o << src.substr(start);
+    }
+    return o.str();
+}
 
 class Resource : public CRefCountedThreadSafe<Resource> {
 public:
@@ -565,9 +610,7 @@ public:
         return true;
     }
 
-    std::string TypeName() const {
-        return ValueType::ToString(Type);
-    }
+    std::string TypeName() const { return ValueType::ToString(Type); }
 
     static std::string HexEncode(const char* buf, int count) {
         char buffer[6] = {0};
@@ -634,6 +677,64 @@ public:
         }
     }
 
+    std::string ToJSONString() const {
+        char buffer[16] = {0};
+        switch (Type) {
+        case ValueType::kString:
+        case ValueType::kBytes:
+            return "\"" + HTMLEscape(bytes) + "\"";
+        case ValueType::kInteger:
+            snprintf(buffer, 16, "%lld", Integer);
+            return buffer;
+        case ValueType::kNULL:
+            return "null";
+        case ValueType::kFloat:
+            snprintf(buffer, 16, "%f", Float);
+            return buffer;
+        case ValueType::kArray: {
+            std::vector<Value>::const_iterator iter = _array.begin();
+            std::string ret = "[";
+            while (iter != _array.end()) {
+                ret += iter->ToJSONString();
+                ret += ",";
+                iter++;
+            }
+            if (_array.size() > 0) {
+                ret[ret.size() - 1] = ']';
+            } else {
+                ret += ']';
+            }
+            return ret;
+        }
+
+        case ValueType::kMap: {
+            std::string ret = "{";
+            std::map<Value, Value>::const_iterator iter = _map.begin();
+            while (iter != _map.end()) {
+                if (iter->first.Type != ValueType::kString &&
+                    iter->first.Type != ValueType::kBytes) {
+                    iter++;
+                    continue;
+                }
+                ret += (iter->first).ToJSONString();
+                ret += ":";
+                ret += (iter->second).ToJSONString();
+                ret += ",";
+                iter++;
+            }
+            if (_map.size() > 0) {
+                ret[ret.size() - 1] = '}';
+            } else {
+                ret += '}';
+            }
+            return ret;
+        }
+
+        default:
+            return "";
+        }
+    }
+
 protected:
     INTVAR ToInteger() const {
         if (Type == ValueType::kFloat) {
@@ -662,21 +763,4 @@ private:
     }
 };
 
-inline std::list<std::string> split(const std::string& text, char split_char) {
-    std::list<std::string> result;
-    std::string part = "";
-    std::string::const_iterator iter = text.begin();
-    while (iter != text.end()) {
-        if (*iter == split_char) {
-            result.push_back(part);
-            part = "";
-            iter++;
-            continue;
-        }
-        part += (*iter);
-        iter++;
-    }
-    result.push_back(part);
-    return result;
-}
 } // namespace Interpreter

@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string>
 #include "parser.hpp"
-#define YYDEBUG 1
 %}
 %require "3.2"
 %{

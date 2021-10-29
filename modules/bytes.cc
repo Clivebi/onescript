@@ -37,6 +37,11 @@ inline std::string check_error(int i, const char* type) {
         throw RuntimeException(std::string(__FUNCTION__) + check_error(i, "map")); \
     }
 
+#define CHECK_PARAMETER_ARRAY(i)                                                     \
+    if (args[i].Type != ValueType::kMap) {                                           \
+        throw RuntimeException(std::string(__FUNCTION__) + check_error(i, "array")); \
+    }
+
 Value ContainsBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
     CHECK_PARAMETER_COUNT(2);
     CHECK_PARAMETER_STRING(0);

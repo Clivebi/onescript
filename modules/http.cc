@@ -227,55 +227,33 @@ void parser_url(std::string& url, std::string& scheme, std::string& host, std::s
 }
 
 bool DeflateStream(std::string& src, std::string& out) {
-    unsigned long buflen = src.size() * 2;
+    z_stream strm = {0};
+    inflateInit2(&strm, 32 + 15);
+    size_t process_size = 0;
+    Bytef* data = (Bytef*)src.c_str();
 
-    while (1) {
-        int err;
-        void* buffer;
-        z_stream strm;
-
-        /* Initialize inflate state */
-        strm.zalloc = Z_NULL;
-        strm.zfree = Z_NULL;
-        strm.opaque = Z_NULL;
-        strm.avail_in = src.size();
-#ifdef z_const
-        strm.next_in = (Bytef*)src.c_str();
-#else
-        /* Workaround for older zlib. */
-        strm.next_in = (void*)src;
-#endif
-        /*
-       * From: http://www.zlib.net/manual.html
-       * Add 32 to windowBits to enable zlib and gzip decoding with automatic
-       * header detection.
-       */
-        if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
-
-        buffer = malloc(buflen);
-        if (buffer == NULL) {
+    int ret = Z_OK;
+    strm.avail_in = src.size();
+    strm.next_in = data;
+    char* buffer = (char*)malloc(8 * 1024);
+    while (strm.avail_in > 0) {
+        strm.avail_out = 8 * 1024;
+        strm.next_out = (Bytef*)buffer;
+        ret = inflate(&strm, Z_NO_FLUSH);
+        assert(ret != Z_STREAM_ERROR);
+        switch (ret) {
+        case Z_NEED_DICT:
+        case Z_DATA_ERROR:
+        case Z_MEM_ERROR:
             inflateEnd(&strm);
+            free(buffer);
             return false;
         }
-        strm.avail_out = buflen;
-        strm.next_out = (Bytef*)buffer;
-
-        err = inflate(&strm, Z_SYNC_FLUSH);
-        inflateEnd(&strm);
-        if (err == Z_OK || err == Z_STREAM_END) {
-            out.assign((char*)buffer, strm.total_out);
-            free(buffer);
-            inflateEnd(&strm);
-            return true;
-        }
-        free(buffer);
-        inflateEnd(&strm);
-        if (err == Z_BUF_ERROR) {
-            buflen *= 2;
-            continue;
-        }
-        return false;
+        out.append(buffer, 8 * 1024 - strm.avail_out);
     }
+    inflateEnd(&strm);
+    free(buffer);
+    return true;
 }
 
 bool BrotliDecompress(std::string& src, std::string& out) {
