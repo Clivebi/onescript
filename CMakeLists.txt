@@ -1,32 +1,44 @@
 cmake_minimum_required(VERSION 3.12.0)
-project(vec)
+project(onescript)
 
-set(CMAKE_BUILD_TYPE "DEBUG")
+#default build debug
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug")
+endif(NOT CMAKE_BUILD_TYPE)
 
-set(CXX_GCC_FLAGS "${CXX_GCC_FLAGS} -fno-omit-frame-pointer -std=c++11")
+include (FindPkgConfig)
+if (NOT PKG_CONFIG_FOUND)
+  message(FATAL_ERROR "pkg-config executable not found. Aborting.")
+endif (NOT PKG_CONFIG_FOUND)
 
-set(CXX_FLAGS_DEBUG "${CXX_GCC_FLAGS} -Werror -ggdb3 -O0 -gdwarf-2")
-set(CXX_FLAGS_RELEASE "${CXX_GCC_FLAGS} -O3 -fPIC -gdwarf-2 -DNDEBUG")
-SET(CXX_FLAGS_ASAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-2 -fsanitize=address -DADDRESS_SANITIZER")
-SET(CXX_FLAGS_LSAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-2 -fsanitize=leak -DLEAK_SANITIZER")
-SET(CXX_FLAGS_UBSAN "${CXX_GCC_FLAGS} -ggdb3 -O0 -gdwarf-2 -fno-wrapv -fsanitize=undefined")
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+pkg_check_modules (OPENSSL REQUIRED openssl>=1.1.0)
+pkg_check_modules (ZLIB REQUIRED zlib>=1.1.0)
+pkg_check_modules (BROTLI REQUIRED libbrotlidec>=1.0.9)
 
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    SET(CMAKE_CXX_FLAGS ${CXX_FLAGS_DEBUG})
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    SET(CMAKE_CXX_FLAGS ${CXX_FLAGS_RELEASE})
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "ASAN")
-    SET(CMAKE_CXX_FLAGS "${CXX_FLAGS_ASAN}")
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "LSAN")
-    SET(CMAKE_CXX_FLAGS "${CXX_FLAGS_LSAN}")
-else()
-    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif()
+if(NOT OPENSSL_FOUND)
+    message(FATAL_ERROR "openssl >=1.1.0 not found")
+endif(NOT OPENSSL_FOUND)
+
+if(NOT BROTLI_FOUND)
+    message(FATAL_ERROR "libbrotlidec>=1.0.9 not found")
+endif(NOT BROTLI_FOUND)
+
+if(NOT ZLIB_FOUND)
+    message(FATAL_ERROR "zlib>=1.1.0 not found")
+endif(NOT ZLIB_FOUND)
+
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
+                     ${ZLIB_INCLUDE_DIRS} 
+                     ${BROTLI_INCLUDE_DIRS}
+                     ${OPENSSL_INCLUDE_DIRS})
+
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -std=c++11 -Werror")
+
+#set(CXX_FLAGS_DEBUG "${CXX_GCC_FLAGS} -Werror -ggdb3 -O0 -gdwarf-2")
+#set(CXX_FLAGS_RELEASE "${CXX_FLAGS_RELEASE} ${CXX_GCC_FLAGS} -O2 -fPIC -gdwarf-2 -DNDEBUG -Wall")
 
 set(GENSRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_command(
     OUTPUT ${GENSRC_DIR}/script.tab.hpp  ${GENSRC_DIR}/script.tab.cpp
@@ -52,3 +64,4 @@ add_executable(Interpreter
     vmcontext.cc 
     modules/module.cc
 )
+target_link_libraries(Interpreter ${OPENSSL_LDFLAGS} ${ZLIB_LDFLAGS} ${BROTLI_LDFLAGS})

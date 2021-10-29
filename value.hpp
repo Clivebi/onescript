@@ -48,6 +48,29 @@ const int kBytes = 4;
 const int kArray = 5;
 const int kMap = 6;
 const int kResource = 10;
+
+inline std::string ToString(int Type) {
+    switch (Type) {
+    case ValueType::kString:
+        return "string";
+    case ValueType::kInteger:
+        return "integer";
+    case ValueType::kNULL:
+        return "nil";
+    case ValueType::kFloat:
+        return "float";
+    case ValueType::kArray:
+        return "array";
+    case ValueType::kMap:
+        return "map";
+    case ValueType::kBytes:
+        return "bytes";
+    case ValueType::kResource:
+        return "resource";
+    default:
+        return "Unknown";
+    }
+}
 }; // namespace ValueType
 
 class Instruction;
@@ -93,7 +116,7 @@ public:
     Value(const Value& right) : resource(NULL) {
         Type = right.Type;
         Float = right.Float;
-        if(Type == ValueType::kInteger){
+        if (Type == ValueType::kInteger) {
             Integer = right.Integer;
         }
         bytes = right.bytes;
@@ -104,7 +127,7 @@ public:
     Value& operator=(const Value& right) {
         Type = right.Type;
         Float = right.Float;
-        if(Type == ValueType::kInteger){
+        if (Type == ValueType::kInteger) {
             Integer = right.Integer;
         }
         bytes = right.bytes;
@@ -543,26 +566,7 @@ public:
     }
 
     std::string TypeName() const {
-        switch (Type) {
-        case ValueType::kString:
-            return "string";
-        case ValueType::kInteger:
-            return "integer";
-        case ValueType::kNULL:
-            return "nil";
-        case ValueType::kFloat:
-            return "float";
-        case ValueType::kArray:
-            return "array";
-        case ValueType::kMap:
-            return "map";
-        case ValueType::kBytes:
-            return "bytes";
-        case ValueType::kResource:
-            return "resource";
-        default:
-            return "Unknown";
-        }
+        return ValueType::ToString(Type);
     }
 
     static std::string HexEncode(const char* buf, int count) {
@@ -581,7 +585,7 @@ public:
         case ValueType::kString:
             return bytes;
         case ValueType::kBytes: {
-            return HexEncode(bytes.c_str(),bytes.size());
+            return HexEncode(bytes.c_str(), bytes.size());
         }
         case ValueType::kInteger:
             snprintf(buffer, 16, "%lld", Integer);

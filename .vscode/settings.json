@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.sc": "onescript",
         "__bit_reference": "cpp",
         "__config": "cpp",
         "__debug": "cpp",
@@ -90,6 +91,10 @@
         "cinttypes": "cpp",
         "filesystem": "cpp",
         "*.ipp": "cpp",
-        "csetjmp": "cpp"
+        "csetjmp": "cpp",
+        "any": "cpp",
+        "csignal": "cpp",
+        "future": "cpp",
+        "regex": "cpp"
     }
 }

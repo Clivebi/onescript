@@ -2,36 +2,59 @@
 
 #include "../vm.hpp"
 using namespace Interpreter;
-#define CHECK_PARAMETER_COUNT(args, count)                              \
+#include "sstream"
+
+inline std::string check_error(int i, const char* type) {
+    std::stringstream s;
+    s << "the #" << i << " argument must be an " << type << std::endl;
+    ;
+    return s.str();
+}
+
+#define CHECK_PARAMETER_COUNT(count)                                    \
     if (args.size() < count) {                                          \
         throw RuntimeException(std::string(__FUNCTION__) +              \
                                ": the count of parameters not enough"); \
     }
 
-#define CHECK_PARAMETER_TYPE(arg)                                          \
-    if (arg.Type != ValueType::kBytes && arg.Type != ValueType::kString) { \
-        throw RuntimeException(std::string(__FUNCTION__) +                 \
-                               ": the parameters must bytes or string");   \
+#define CHECK_PARAMETER_STRING(i)                                                              \
+    if (args[i].Type != ValueType::kBytes && args[i].Type != ValueType::kString) {             \
+        throw RuntimeException(std::string(__FUNCTION__) + check_error(i, "string or bytes")); \
+    }
+
+#define CHECK_PARAMETER_INTEGER(i)                                                     \
+    if (args[i].Type != ValueType::kInteger) {                                         \
+        throw RuntimeException(std::string(__FUNCTION__) + check_error(i, "integer")); \
+    }
+
+#define CHECK_PARAMETER_RESOURCE(i)                                                     \
+    if (args[i].Type != ValueType::kResource) {                                         \
+        throw RuntimeException(std::string(__FUNCTION__) + check_error(i, "resource")); \
+    }
+
+#define CHECK_PARAMETER_MAP(i)                                                     \
+    if (args[i].Type != ValueType::kMap) {                                         \
+        throw RuntimeException(std::string(__FUNCTION__) + check_error(i, "map")); \
     }
 
 Value ContainsBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     return Value(args[0].bytes.find(args[1].bytes) != std::string::npos);
 }
 
 Value HasPrefixBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     return Value(args[0].bytes.find(args[1].bytes) == 0);
 }
 
 Value HasSuffixBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     if (args[0].bytes.size() < args[1].bytes.size()) {
         return Value(false);
     }
@@ -47,9 +70,9 @@ bool ContainsByte(std::string& str, unsigned char c) {
 }
 
 Value TrimLeftBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     size_t pos = 0;
     for (size_t i = 0; i < args[0].bytes.size(); i++) {
         if (ContainsByte(args[1].bytes, args[0].bytes[i])) {
@@ -69,9 +92,9 @@ Value TrimLeftBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
 }
 
 Value TrimRightBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     if (args[0].bytes.size() == 0) {
         return Value("");
     }
@@ -89,9 +112,9 @@ Value TrimRightBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
 }
 
 Value TrimBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     size_t pos = 0;
     for (size_t i = 0; i < args[0].bytes.size(); i++) {
         if (ContainsByte(args[1].bytes, args[0].bytes[i])) {
@@ -118,24 +141,24 @@ Value TrimBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
 }
 
 Value IndexBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     size_t pos = args[0].bytes.find(args[1].bytes);
     return Value((long)pos);
 }
 
 Value LastIndexBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     size_t pos = args[0].bytes.rfind(args[1].bytes);
     return Value((long)pos);
 }
 
 Value RepeatBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
     if (args[1].Type != ValueType::kInteger) {
         throw RuntimeException("second parameter is must a integer");
     }
@@ -167,13 +190,11 @@ std::string& replace_str(std::string& str, const std::string& to_replaced,
 }
 
 Value ReplaceBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 4);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
-    CHECK_PARAMETER_TYPE(args[2]);
-    if (args[3].Type != ValueType::kInteger) {
-        throw RuntimeException("fourth parameter is must a integer");
-    }
+    CHECK_PARAMETER_COUNT(4);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
+    CHECK_PARAMETER_STRING(2);
+    CHECK_PARAMETER_INTEGER(3);
     std::string result = args[0].bytes;
     result = replace_str(result, args[1].bytes, args[2].bytes, (int)args[3].Integer);
     Value ret = Value::make_bytes(result);
@@ -183,9 +204,10 @@ Value ReplaceBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
 }
 
 Value ReplaceAllBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 3);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(3);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
+    CHECK_PARAMETER_STRING(2);
     std::string result = args[0].bytes;
     result = replace_str(result, args[1].bytes, args[2].bytes, -1);
     Value ret = Value::make_bytes(result);
@@ -214,9 +236,9 @@ std::vector<Value> Split(std::string& src, std::string& slip) {
 }
 
 Value SplitBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 2);
-    CHECK_PARAMETER_TYPE(args[0]);
-    CHECK_PARAMETER_TYPE(args[1]);
+    CHECK_PARAMETER_COUNT(2);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(1);
     std::vector<Value> result = Split(args[0].bytes, args[1].bytes);
     std::vector<Value>::iterator iter = result.begin();
     while (iter != result.end()) {
@@ -227,15 +249,16 @@ Value SplitBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
 }
 
 Value ToUpperBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 1);
-    CHECK_PARAMETER_TYPE(args[0]);
+    CHECK_PARAMETER_COUNT(1);
+    CHECK_PARAMETER_STRING(0);
     transform(args[0].bytes.begin(), args[0].bytes.end(), args[0].bytes.begin(), toupper);
     return args[0];
 }
 
 Value ToLowerBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
-    CHECK_PARAMETER_COUNT(args, 1);
-    CHECK_PARAMETER_TYPE(args[0]);
+    CHECK_PARAMETER_COUNT(1);
+    CHECK_PARAMETER_STRING(0);
+    CHECK_PARAMETER_STRING(2);
     transform(args[0].bytes.begin(), args[0].bytes.end(), args[0].bytes.begin(), tolower);
     return args[0];
 }
