@@ -6,7 +6,7 @@ using namespace Interpreter;
 
 inline std::string check_error(int i, const char* type) {
     std::stringstream s;
-    s << "the #" << i << " argument must be an " << type << std::endl;
+    s << " :the #" << i << " argument must be an " << type << std::endl;
     ;
     return s.str();
 }
@@ -263,7 +263,6 @@ Value ToUpperBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
 Value ToLowerBytes(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
     CHECK_PARAMETER_COUNT(1);
     CHECK_PARAMETER_STRING(0);
-    CHECK_PARAMETER_STRING(2);
     transform(args[0].bytes.begin(), args[0].bytes.end(), args[0].bytes.begin(), tolower);
     return args[0];
 }

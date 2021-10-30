@@ -64,6 +64,7 @@ public:
     virtual ~Resource() { Close(); }
     virtual void Close() {};
     virtual bool IsAvaliable() = 0;
+    virtual std::string TypeName()= 0;
 };
 
 class FileResource : public Resource {
@@ -80,6 +81,7 @@ public:
         }
     }
     bool IsAvaliable() { return mFile != NULL; }
+    std::string TypeName(){return "FileResource";}
 };
 
 typedef scoped_refptr<Resource> Resource_ptr;

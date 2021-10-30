@@ -3,7 +3,7 @@
 #ifndef CHECK_PARAMETER_COUNT
 inline std::string check_error(int i, const char* type) {
     std::stringstream s;
-    s << "the #" << i << " argument must be an " << type << std::endl;
+    s << " :the #" << i << " argument must be an " << type << std::endl;
     ;
     return s.str();
 }

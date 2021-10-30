@@ -55,6 +55,7 @@ public:
         }
         return send(mSocket, buf, size, 0);
     }
+    std::string TypeName() { return "TCPStream"; }
 };
 
 int open_connection(const char* host, const char* port, int timeout_sec) {
@@ -97,6 +98,6 @@ TCPStream* NewTCPStream(std::string& host, std::string& port, int timeout_sec, b
         delete stream;
         return NULL;
     }
-    //SSL_get_peer_certificate copy x509 
+    //SSL_get_peer_certificate copy x509
     return stream;
 }
