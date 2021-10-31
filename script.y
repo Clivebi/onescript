@@ -19,7 +19,6 @@ void yyerror(Interpreter::Parser * parser,const char *s);
     Instruction* object;
 };
 
-
 %token  <identifier>VAR FUNCTION FOR IF ELIF ELSE ADD SUB MUL DIV MOD ASSIGN
         EQ NE GT GE LT LE LP RP LC RC SEMICOLON IDENTIFIER 
         BREAK CONTINUE RETURN COMMA STRING_LITERAL COLON ADDASSIGN SUBASSIGN
@@ -49,9 +48,9 @@ void yyerror(Interpreter::Parser * parser,const char *s);
 %left  COLON
 
 %right NOT INC DEC BNG
-%left LP RP
+%left LP RP LB RB
 
-%nonassoc '|' UMINUS
+%nonassoc '|' UMINUS 
 
 
 %type <object> declaration declarationlist var_declaration
@@ -71,7 +70,7 @@ void yyerror(Interpreter::Parser * parser,const char *s);
 %type <object> for_init for_statement for_condition for_update
 %type <object> break_expression continue_expression 
 %type <object> map_value array_value map_item map_item_list
-%type <object> index_to_read slice index_to_write key_value
+%type <object> read_at_index slice index_to_write key_value write_indexer
 %type <object> for_in_statement
 %type <object> case_item case_item_list switch_case_statement const_value_list
 %%
@@ -362,7 +361,7 @@ value_expression: const_value
         {
                 $$=$1;
         }
-        |index_to_read
+        |read_at_index
         {
                 $$=$1;
         }
@@ -511,11 +510,19 @@ assign_expression: IDENTIFIER ASSIGN value_expression
         }
         ;
 
-index_to_write:IDENTIFIER LB key_value RB ASSIGN value_expression
+write_indexer: write_indexer LB key_value RB 
         {
-                $$=parser->VarUpdateAtExression($1,$3,$6);
+                $$= parser->AddToList($1,$3);
         }
-        ;
+        |LB key_value RB 
+        {
+                $$= parser->CreateList("index-list",$2); 
+        };
+
+index_to_write:IDENTIFIER write_indexer ASSIGN value_expression
+        {
+                $$=parser->VarUpdateAtExression($1,$2,$4);
+        };
 
 assign_expression_list: assign_expression_list COMMA assign_expression
         {
@@ -576,9 +583,13 @@ key_value:math_expression
         }
         ;
 
-index_to_read:IDENTIFIER LB key_value RB
+read_at_index:IDENTIFIER LB key_value RB
         {
                 $$=parser->VarReadAtExpression($1,$3);
+        }
+        | read_at_index LB key_value RB 
+        {
+                $$=parser->VarReadAtExpression($1,$3); 
         }
         ;
 

@@ -19,6 +19,7 @@
                 "${workspaceFolder}/builtin.cc",
                 "${workspaceFolder}/main.cc",
                 "${workspaceFolder}/parser.cc",
+                "${workspaceFolder}/value.cc",
                 "${workspaceFolder}/script.tab.cpp",
                 "${workspaceFolder}/script.lex.cpp",
                 "${workspaceFolder}/vm.cc",

@@ -84,7 +84,7 @@ Instruction* Parser::CreateFunction(const std::string& name, Instruction* formal
 
 Instruction* Parser::CreateFunctionCall(const std::string& name, Instruction* actualParameters) {
     Instruction* obj = mScript->NewInstruction();
-    if(actualParameters != NULL){
+    if (actualParameters != NULL) {
         obj->Refs.push_back(actualParameters->key);
     }
     obj->OpCode = Instructions::kCallFunction;
@@ -224,8 +224,20 @@ Instruction* Parser::VarReadAtExpression(const std::string& name, Instruction* w
     }
     return obj;
 }
+Instruction* Parser::VarReadAtExpression(Instruction* fromObj, Instruction* where) {
+    Instruction* obj = mScript->NewInstruction(where, fromObj);
+    obj->OpCode = Instructions::kReadAt;
+    if (mLogInstruction) {
+        LOG(mScript->DumpInstruction(obj, ""));
+    }
+    return obj;
+}
 Instruction* Parser::VarUpdateAtExression(const std::string& name, Instruction* where,
                                           Instruction* value) {
+    assert(where->OpCode == Instructions::kGroup);
+    if (where->Refs.size() == 1) {
+        where = (Instruction*)mScript->GetInstruction(where->Refs[0]);
+    }
     Instruction* obj = mScript->NewInstruction(where, value);
     obj->OpCode = Instructions::kWriteAt;
     obj->Name = name;

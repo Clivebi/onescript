@@ -1,5 +1,5 @@
-
 #pragma once
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,58 +13,19 @@
 #include "logger.hpp"
 
 namespace Interpreter {
-inline std::list<std::string> split(const std::string& text, char split_char) {
-    std::list<std::string> result;
-    std::string part = "";
-    std::string::const_iterator iter = text.begin();
-    while (iter != text.end()) {
-        if (*iter == split_char) {
-            result.push_back(part);
-            part = "";
-            iter++;
-            continue;
-        }
-        part += (*iter);
-        iter++;
-    }
-    result.push_back(part);
-    return result;
-}
 
-inline std::string HTMLEscape(const std::string& src) {
-    const char* hex = "0123456789abcdef";
-    std::stringstream o;
-    int start = 0;
-    for (size_t i = 0; i < src.size(); i++) {
-        int c = src[i];
-        if (c == '<' || c == '>' || c == '&') {
-            o << "\\u00";
-            o << hex[c >> 4];
-            o << hex[c & 0xF];
-            start = i + 1;
-        }
-        if (c == 0xE2 && i + 2 < src.size() && (int)src[i + 1] == 0x80 &&
-            (src[i + 2] & (src[i + 2] ^ 1)) == 0xA8) {
-            if (start < i) {
-                o << src.substr(start, i - start);
-            }
-            o << "\\u202";
-            o << hex[src[i + 2] & 0xF];
-            start = i + 3;
-        }
-    }
-    if(start < src.size()){
-        o << src.substr(start);
-    }
-    return o.str();
-}
+std::list<std::string> split(const std::string& text, char split_char);
+std::string HTMLEscape(const std::string& src);
+std::string ToString(double val);
+std::string ToString(int64_t val);
+std::string HexEncode(const char* buf, int count);
 
 class Resource : public CRefCountedThreadSafe<Resource> {
 public:
     virtual ~Resource() { Close(); }
     virtual void Close() {};
     virtual bool IsAvaliable() = 0;
-    virtual std::string TypeName()= 0;
+    virtual std::string TypeName() = 0;
 };
 
 class FileResource : public Resource {
@@ -81,10 +42,8 @@ public:
         }
     }
     bool IsAvaliable() { return mFile != NULL; }
-    std::string TypeName(){return "FileResource";}
+    std::string TypeName() { return "FileResource"; }
 };
-
-typedef scoped_refptr<Resource> Resource_ptr;
 
 namespace ValueType {
 const int kNULL = 0;
@@ -94,6 +53,7 @@ const int kString = 3;
 const int kBytes = 4;
 const int kArray = 5;
 const int kMap = 6;
+const int kObject = 7;
 const int kResource = 10;
 
 inline std::string ToString(int Type) {
@@ -120,159 +80,96 @@ inline std::string ToString(int Type) {
 }
 }; // namespace ValueType
 
-class Instruction;
+class Value;
+
+class Object : public CRefCountedThreadSafe<Object> {
+public:
+    virtual ~Object() {}
+    virtual std::string ObjectType() const = 0;
+    virtual std::string MapKey() const { return Interpreter::ToString((int64_t)this); }
+    virtual std::string ToString() const = 0;
+    virtual std::string ToJSONString() const = 0;
+};
+
+class ArrayObject : public Object {
+public:
+    std::vector<Value> _array;
+
+public:
+    std::string ObjectType() const { return "array"; };
+    std::string ToString() const;
+    std::string ToJSONString() const;
+};
+
+struct cmp_key {
+    bool operator()(const Value& k1, const Value& k2) const;
+};
+typedef std::map<Value, Value, cmp_key> MAPTYPE;
+class MapObject : public Object {
+public:
+    MAPTYPE _map;
+
+public:
+    std::string ObjectType() const { return "map"; };
+    std::string ToString() const;
+    std::string ToJSONString() const;
+};
+
+inline bool IsMap(Object* obj) {
+    return obj->ObjectType() == "map";
+}
+inline bool IsArray(Object* obj) {
+    return obj->ObjectType() == "array";
+}
+
+typedef scoped_refptr<Object> OBJECTPTR;
+typedef scoped_refptr<Resource> RESOURCE;
+
 class Value {
 public:
     typedef int64_t INTVAR;
-
-public:
-    int Type;
+    unsigned char Type;
     union {
         INTVAR Integer;
         double Float;
     };
     std::string bytes;
-    std::vector<Value> _array;
-    std::map<Value, Value> _map;
-    Resource_ptr resource;
+    RESOURCE resource;
+    OBJECTPTR object;
 
-    Value(bool val) : Type(ValueType::kInteger), resource(NULL) {
-        Integer = 0;
-        if (val) {
-            Integer = 1;
-        }
-    }
-    static Value make_map() {
-        Value ret = Value();
-        ret.Type = ValueType::kMap;
-        ret._map.clear();
-        return ret;
-    }
-    static Value make_array() {
-        Value ret = Value();
-        ret.Type = ValueType::kArray;
-        ret._array.clear();
-        return ret;
-    }
-    static Value make_bytes(std::string bytes) {
-        Value ret = Value();
-        ret.Type = ValueType::kBytes;
-        ret.bytes = bytes;
-        return ret;
-    }
-    Value(const Value& right) : resource(NULL) {
-        Type = right.Type;
-        Float = right.Float;
-        if (Type == ValueType::kInteger) {
-            Integer = right.Integer;
-        }
-        bytes = right.bytes;
-        _map = right._map;
-        _array = right._array;
-        resource = right.resource;
-    }
-    Value& operator=(const Value& right) {
-        Type = right.Type;
-        Float = right.Float;
-        if (Type == ValueType::kInteger) {
-            Integer = right.Integer;
-        }
-        bytes = right.bytes;
-        _map = right._map;
-        _array = right._array;
-        resource = right.resource;
-        return *this;
-    }
-    Value() : Type(ValueType::kNULL), bytes(), Integer(0), _map(), _array(), resource(NULL) {}
-    Value(const char* val) : Type(ValueType::kString), bytes(val), Integer(0), resource(NULL) {}
-    Value(const std::string& val)
-            : Type(ValueType::kString), bytes(val), Integer(0), resource(NULL) {}
-    Value(long val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(unsigned long val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(INTVAR val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(int32_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(int16_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(uint32_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(uint16_t val) : Type(ValueType::kInteger), bytes(), Integer(val), resource(NULL) {}
-    Value(double val) : Type(ValueType::kFloat), bytes(), Float(val), resource(NULL) {}
-    Value(const std::vector<Value>& val)
-            : Type(ValueType::kArray), bytes(), Integer(0), _array(val), _map(), resource(NULL) {}
-    Value(const std::map<Value, Value>& val)
-            : Type(ValueType::kArray), bytes(), Integer(0), _array(), _map(val), resource(NULL) {}
-    Value(Resource* res)
-            : Type(ValueType::kResource),
-              resource(make_scoped_refptr(res)),
-              bytes(),
-              Integer(0),
-              _array(),
-              _map() {}
-    Value operator+(Value& right) {
-        if (this->Type == ValueType::kString && right.Type == ValueType::kString) {
-            return Value(bytes + right.bytes);
-        }
-        if (this->Type == ValueType::kBytes && right.Type == ValueType::kBytes) {
-            return make_bytes(bytes + right.bytes);
-        }
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        if (Type == ValueType::kFloat || right.Type == ValueType::kFloat) {
-            return Value(ToFloat() + right.ToFloat());
-        }
-        return Value(ToInteger() + right.ToInteger());
+public:
+    Value();
+    Value(bool val);
+    Value(long val);
+    Value(INTVAR val);
+    Value(int val);
+    Value(unsigned int val);
+    Value(size_t val);
+    Value(double val);
+    Value(std::string val);
+    Value(const char* str);
+    Value(const Value& val);
+    Value(Resource*);
+    Value(const std::vector<Value>& val);
+    Value& operator=(const Value& right);
+
+    static Value make_array();
+    static Value make_bytes(std::string val);
+    static Value make_map();
+
+public:
+    bool IsInteger() const { return Type == ValueType::kInteger; }
+    bool IsNumber() const { return Type == ValueType::kInteger || Type == ValueType::kFloat; }
+    bool IsStringOrBytes() const { return Type == ValueType::kString || Type == ValueType::kBytes; }
+    bool IsSameType(const Value& right) const { return Type == right.Type; }
+    bool IsObject() const {
+        return Type == ValueType::kObject || Type == ValueType::kArray || Type == ValueType::kMap;
     }
 
-    const Value& operator+=(const Value& right) {
-        if (this->Type == ValueType::kString) {
-            switch (right.Type) {
-            case ValueType::kString:
-                this->bytes += right.bytes;
-                return *this;
-            case ValueType::kFloat:
-            case ValueType::kInteger:
-                this->bytes += right.ToString();
-                return *this;
-            default:
-                throw RuntimeException("+= operation not avaliable for right value ");
-            }
-        }
-        if (this->Type == ValueType::kBytes) {
-            switch (right.Type) {
-            case ValueType::kBytes:
-                this->bytes += right.bytes;
-                return *this;
-            case ValueType::kFloat:
-            case ValueType::kInteger:
-                this->bytes += (unsigned char)right.ToInteger();
-                return *this;
-            default:
-                throw RuntimeException("+= operation not avaliable for right value ");
-            }
-        }
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        if (Type == ValueType::kFloat) {
-            Float += right.ToFloat();
-            return *this;
-        }
-        Integer += right.ToInteger();
-        return *this;
-    }
-
-    Value operator-(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        if (Type == ValueType::kFloat || right.Type == ValueType::kFloat) {
-            return Value(ToFloat() - right.ToFloat());
-        }
-        return Value(ToInteger() - right.ToInteger());
-    }
-
-    Value operator-=(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
+    Value& operator+=(const Value& right);
+    Value& operator-=(const Value& right) {
+        if (!IsNumber() || !right.IsNumber()) {
+            throw Interpreter::RuntimeException("-= must used on integer or float");
         }
         if (Type == ValueType::kFloat) {
             Float -= right.ToFloat();
@@ -281,20 +178,9 @@ public:
         Integer -= right.ToInteger();
         return *this;
     }
-
-    Value operator*(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        if (Type == ValueType::kFloat || right.Type == ValueType::kFloat) {
-            return Value(ToFloat() * right.ToFloat());
-        }
-        return Value(ToInteger() * right.ToInteger());
-    }
-
-    Value operator*=(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
+    Value& operator*=(const Value& right) {
+        if (!IsNumber() || !right.IsNumber()) {
+            throw Interpreter::RuntimeException("*= must used on integer or float");
         }
         if (Type == ValueType::kFloat) {
             Float *= right.ToFloat();
@@ -303,19 +189,9 @@ public:
         Integer *= right.ToInteger();
         return *this;
     }
-
-    Value operator/(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        if (Type == ValueType::kFloat || right.Type == ValueType::kFloat) {
-            return Value(ToFloat() / right.ToFloat());
-        }
-        return Value(ToInteger() / right.ToInteger());
-    }
-    Value operator/=(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
+    Value& operator/=(const Value& right) {
+        if (!IsNumber() || !right.IsNumber()) {
+            throw Interpreter::RuntimeException("/= must used on integer or float");
         }
         if (Type == ValueType::kFloat) {
             Float /= right.ToFloat();
@@ -324,445 +200,91 @@ public:
         Integer /= right.ToInteger();
         return *this;
     }
-
-    Value operator%(Value& right) {
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
+    Value& operator%=(const Value& right) {
+        if (!IsInteger() || !right.IsInteger()) {
+            throw Interpreter::RuntimeException("%= must used on integer");
         }
-        return Value(ToInteger() % right.ToInteger());
-    }
-
-    bool operator<(const Value& right) const {
-        if (Type == ValueType::kString && right.Type == ValueType::kString) {
-            return bytes < right.bytes;
-        }
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        return ToFloat() < right.ToFloat();
-    }
-
-    bool operator<=(const Value& right) const {
-        if (Type == ValueType::kString && right.Type == ValueType::kString) {
-            return bytes <= right.bytes;
-        }
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        return ToFloat() <= right.ToFloat();
-    }
-    bool operator>(const Value& right) const {
-        if (Type == ValueType::kString && right.Type == ValueType::kString) {
-            return bytes > right.bytes;
-        }
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        return ToFloat() > right.ToFloat();
-    }
-    bool operator>=(const Value& right) const {
-        if (Type == ValueType::kString && right.Type == ValueType::kString) {
-            return bytes >= right.bytes;
-        }
-        if (!IsArithmeticOperationEnabled(right)) {
-            throw RuntimeException("arithmetic operation not avaliable for this value ");
-        }
-        return ToFloat() >= right.ToFloat();
-    }
-
-    bool operator==(const Value& right) const {
-        if (IsArithmeticOperationEnabled(right)) {
-            return ToFloat() == right.ToFloat();
-        }
-        if (Type != right.Type) {
-            return false;
-        }
-        switch (Type) {
-        case ValueType::kString:
-        case ValueType::kBytes:
-            return bytes == right.bytes;
-        case ValueType::kNULL:
-            return true;
-        case ValueType::kResource:
-            return resource.get() == right.resource.get();
-        case ValueType::kArray:
-            return _array == right._array;
-        case ValueType::kMap:
-            return _map == right._map;
-        default:
-            return false;
-        }
-    }
-
-    bool operator!=(const Value& right) const { return !(*this == right); }
-
-    Value operator|(const Value& right) const {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("| operation only can used on Integer ");
-        }
-        return Value(Integer | right.Integer);
-    }
-
-    Value operator&(const Value& right) const {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("& operation only can used on Integer ");
-        }
-        return Value(Integer & right.Integer);
-    }
-
-    Value operator^(const Value& right) const {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("^ operation only can used on Integer ");
-        }
-        return Value(Integer ^ right.Integer);
-    }
-    Value operator<<(const Value& right) const {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("<< operation only can used on Integer ");
-        }
-        return Value(Integer << right.Integer);
-    }
-    Value operator>>(const Value& right) const {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException(">> operation only can used on Integer ");
-        }
-        return Value(Integer >> right.Integer);
-    }
-
-    const Value& operator<<=(const Value& right) {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("<<= operation only can used on Integer ");
-        }
-        Integer <<= right.Integer;
-        return *this;
-    }
-    const Value& operator>>=(const Value& right) {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException(">>= operation only can used on Integer ");
-        }
-        Integer >>= right.Integer;
+        Integer %= right.ToInteger();
         return *this;
     }
 
+    Value& operator>>=(const Value& right) {
+        if (!IsInteger() || !right.IsInteger()) {
+            throw Interpreter::RuntimeException(">>= must used on integer");
+        }
+        Integer >>= right.ToInteger();
+        return *this;
+    }
+    Value& operator<<=(const Value& right) {
+        if (!IsInteger() || !right.IsInteger()) {
+            throw Interpreter::RuntimeException(">>= must used on integer");
+        }
+        Integer <<= right.ToInteger();
+        return *this;
+    }
     Value& operator|=(const Value& right) {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("|= operation only can used on Integer ");
+        if (!IsInteger() || !right.IsInteger()) {
+            throw Interpreter::RuntimeException("|= must used on integer");
         }
-        Integer |= right.Integer;
+        Integer |= right.ToInteger();
         return *this;
     }
-
     Value& operator&=(const Value& right) {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("&= operation only can used on Integer ");
+        if (!IsInteger() || !right.IsInteger()) {
+            throw Interpreter::RuntimeException("&= must used on integer");
         }
-        Integer &= right.Integer;
+        Integer &= right.ToInteger();
         return *this;
     }
-
     Value& operator^=(const Value& right) {
-        if (Type != ValueType::kInteger || right.Type != ValueType::kInteger) {
-            throw RuntimeException("^= operation only can used on Integer ");
+        if (!IsInteger() || !right.IsInteger()) {
+            throw Interpreter::RuntimeException("^= must used on integer");
         }
-        Integer ^= right.Integer;
+        Integer ^= right.ToInteger();
         return *this;
     }
-
-    Value operator~() const {
-        if (Type != ValueType::kInteger) {
-            throw RuntimeException("~ operation only can used on Integer ");
+    Value operator~() {
+        if (!IsInteger()) {
+            throw Interpreter::RuntimeException("~ must used on integer");
         }
         return Value(~Integer);
     }
 
-    Value operator[](int index) {
-        if (Type == ValueType::kString || Type == ValueType::kBytes) {
-            if (index >= bytes.size()) {
-                throw RuntimeException("index of string out of range");
-            }
-            return Value((long)bytes[index]);
-        }
-        if (Type == ValueType::kArray) {
-            if (index >= _array.size()) {
-                throw RuntimeException("index of string out of range");
-            }
-            return _array[index];
-        }
-        throw RuntimeException("value not support index operation");
-    }
+    ArrayObject* Array() { return (ArrayObject*)object.get(); }
+    MapObject* Map() { return (MapObject*)object.get(); }
+    MAPTYPE& _map() { return ((MapObject*)object.get())->_map; }
+    std::vector<Value>& _array() { return ((ArrayObject*)object.get())->_array; }
 
-    //a= b[1:24]
-    //a= b[:24]
-    //a= b[4:]
+    std::string MapKey() const;
+    std::string ToString() const;
+    std::string ToJSONString() const;
+    double ToFloat() const;
+    INTVAR ToInteger() const;
 
-    long length() {
-        if (Type == ValueType::kString) {
-            return (long)bytes.size();
-        }
-        if (Type == ValueType::kArray) {
-            return (long)_array.size();
-        }
-        if (Type == ValueType::kMap) {
-            return (long)_map.size();
-        }
-        if (Type == ValueType::kBytes) {
-            return (long)bytes.size();
-        }
-        throw RuntimeException("this value type not have length ");
-    }
-
-    Value sub_slice(const Value& f, const Value& t) {
-        size_t from = 0, to = 0;
-        if (Type != ValueType::kString && Type != ValueType::kArray) {
-            throw RuntimeException("the value type must slice able");
-        }
-        if (f.Type == ValueType::kNULL) {
-            from = 0;
-        } else if (f.Type == ValueType::kInteger) {
-            from = f.Integer;
-        } else {
-            throw RuntimeException("the index key type must a Integer");
-        }
-        if (t.Type == ValueType::kNULL) {
-            to = length();
-        } else if (t.Type == ValueType::kInteger) {
-            to = t.Integer;
-        } else {
-            throw RuntimeException("the index key type must a Integer");
-        }
-        if (to > length() || from > length()) {
-            throw RuntimeException("index out of range");
-        }
-
-        if (Type == ValueType::kString) {
-            std::string sub = bytes.substr(from, to - from);
-            return Value(sub);
-        }
-        if (Type == ValueType::kBytes) {
-            std::string sub = bytes.substr(from, to - from);
-            return make_bytes(sub);
-        }
-        std::vector<Value> result;
-        for (size_t i = from; i < to; i++) {
-            result.push_back(_array[i]);
-        }
-        return Value(result);
-    }
-
-    Value operator[](Value key) {
-        if (Type == ValueType::kString || Type == ValueType::kArray || Type == ValueType::kBytes) {
-            if (key.Type != ValueType::kInteger) {
-                throw RuntimeException("the index key type must a Integer");
-            }
-            if (Type == ValueType::kString || Type == ValueType::kBytes) {
-                if (key.Integer >= bytes.size()) {
-                    throw RuntimeException("index of string(bytes) out of range");
-                }
-                return Value((long)bytes[key.Integer]);
-            }
-            if (key.Integer >= _array.size()) {
-                throw RuntimeException("index of array out of range");
-            }
-            return Value(_array[key.Integer]);
-        }
-        if (Type != ValueType::kMap) {
-            throw RuntimeException("value not support index operation");
-        }
-        std::map<Value, Value>::iterator iter = _map.find(key);
-        if (iter != _map.end()) {
-            return iter->second;
-        }
-        return Value();
-    }
-
-    void set_value(Value key, Value val) {
-        if (Type == ValueType::kString || Type == ValueType::kArray || Type == ValueType::kBytes) {
-            if (key.Type != ValueType::kInteger) {
-                throw RuntimeException("the index key type must a Integer");
-            }
-            if (Type == ValueType::kString || Type == ValueType::kBytes) {
-                if (key.Integer >= bytes.size()) {
-                    throw RuntimeException("index of string(bytes) out of range");
-                }
-                bytes[key.Integer] = (char)val.ToInteger();
-                return;
-            }
-            if (key.Integer >= _array.size()) {
-                throw RuntimeException("index of array out of range");
-            }
-            _array[key.Integer] = val;
-            return;
-        }
-        if (Type != ValueType::kMap) {
-            throw RuntimeException("value not support index operation");
-        }
-        _map[key] = val;
-    }
-
-    bool ToBoolen() {
-        if (Type == ValueType::kNULL) {
-            return false;
-        }
-        if (Type == ValueType::kFloat) {
-            return ToFloat() != 0;
-        }
-        if (Type == ValueType::kInteger) {
-            return ToInteger() != 0;
-        }
-        return true;
-    }
-
-    std::string TypeName() const { return ValueType::ToString(Type); }
-
-    static std::string HexEncode(const char* buf, int count) {
-        char buffer[6] = {0};
-        std::string result = "";
-        for (size_t i = 0; i < count; i++) {
-            snprintf(buffer, 6, "%02X", buf[i]);
-            result += buffer;
-        }
-        return result;
-    }
-
-    std::string ToString() const {
-        char buffer[16] = {0};
-        switch (Type) {
-        case ValueType::kString:
-            return bytes;
-        case ValueType::kBytes: {
-            return HexEncode(bytes.c_str(), bytes.size());
-        }
-        case ValueType::kInteger:
-            snprintf(buffer, 16, "%lld", Integer);
-            return buffer;
-        case ValueType::kNULL:
-            return "nil";
-        case ValueType::kFloat:
-            snprintf(buffer, 16, "%f", Float);
-            return buffer;
-        case ValueType::kArray: {
-            std::vector<Value>::const_iterator iter = _array.begin();
-            std::string ret = "[";
-            while (iter != _array.end()) {
-                ret += iter->ToString();
-                ret += ",";
-                iter++;
-            }
-            if (_array.size() > 0) {
-                ret[ret.size() - 1] = ']';
-            } else {
-                ret += ']';
-            }
-            return ret;
-        }
-
-        case ValueType::kMap: {
-            std::string ret = "{";
-            std::map<Value, Value>::const_iterator iter = _map.begin();
-            while (iter != _map.end()) {
-                ret += (iter->first).ToString();
-                ret += ":";
-                ret += (iter->second).ToString();
-                ret += ",";
-                iter++;
-            }
-            if (_map.size() > 0) {
-                ret[ret.size() - 1] = '}';
-            } else {
-                ret += '}';
-            }
-            return ret;
-        }
-
-        default:
-            return "";
-        }
-    }
-
-    std::string ToJSONString() const {
-        char buffer[16] = {0};
-        switch (Type) {
-        case ValueType::kString:
-        case ValueType::kBytes:
-            return "\"" + HTMLEscape(bytes) + "\"";
-        case ValueType::kInteger:
-            snprintf(buffer, 16, "%lld", Integer);
-            return buffer;
-        case ValueType::kNULL:
-            return "null";
-        case ValueType::kFloat:
-            snprintf(buffer, 16, "%f", Float);
-            return buffer;
-        case ValueType::kArray: {
-            std::vector<Value>::const_iterator iter = _array.begin();
-            std::string ret = "[";
-            while (iter != _array.end()) {
-                ret += iter->ToJSONString();
-                ret += ",";
-                iter++;
-            }
-            if (_array.size() > 0) {
-                ret[ret.size() - 1] = ']';
-            } else {
-                ret += ']';
-            }
-            return ret;
-        }
-
-        case ValueType::kMap: {
-            std::string ret = "{";
-            std::map<Value, Value>::const_iterator iter = _map.begin();
-            while (iter != _map.end()) {
-                if (iter->first.Type != ValueType::kString &&
-                    iter->first.Type != ValueType::kBytes) {
-                    iter++;
-                    continue;
-                }
-                ret += (iter->first).ToJSONString();
-                ret += ":";
-                ret += (iter->second).ToJSONString();
-                ret += ",";
-                iter++;
-            }
-            if (_map.size() > 0) {
-                ret[ret.size() - 1] = '}';
-            } else {
-                ret += '}';
-            }
-            return ret;
-        }
-
-        default:
-            return "";
-        }
-    }
-
-protected:
-    INTVAR ToInteger() const {
-        if (Type == ValueType::kFloat) {
-            return (INTVAR)Float;
-        }
-        if (Type == ValueType::kInteger) {
-            return Integer;
-        }
-        return 0;
-    }
-
-    double ToFloat() const {
-        if (Type == ValueType::kFloat) {
-            return Float;
-        }
-        if (Type == ValueType::kInteger) {
-            return (double)Integer;
-        }
-        return 0;
-    }
-
-private:
-    bool IsArithmeticOperationEnabled(const Value& right) const {
-        return (Type == ValueType::kFloat || Type == ValueType::kInteger) &&
-               (right.Type == ValueType::kFloat || right.Type == ValueType::kInteger);
-    }
+    size_t Length();
+    Value operator[](const Value& key);
+    std::string TypeName() const { return ValueType::ToString(Type); };
+    bool ToBoolean();
+    Value Slice(const Value& from, const Value& to);
+    void SetValue(const Value& key, const Value& val);
 };
 
+Value operator+(const Value& left, const Value& right);
+Value operator-(const Value& left, const Value& right);
+Value operator*(const Value& left, const Value& right);
+Value operator/(const Value& left, const Value& right);
+Value operator%(const Value& left, const Value& right);
+
+bool operator>(const Value& left, const Value& right);
+bool operator>=(const Value& left, const Value& right);
+bool operator<(const Value& left, const Value& right);
+bool operator<=(const Value& left, const Value& right);
+bool operator==(const Value& left, const Value& right);
+bool operator!=(const Value& left, const Value& right);
+
+Value operator>>(const Value& left, const Value& right);
+Value operator<<(const Value& left, const Value& right);
+Value operator|(const Value& left, const Value& right);
+Value operator&(const Value& left, const Value& right);
+Value operator^(const Value& left, const Value& right);
 } // namespace Interpreter

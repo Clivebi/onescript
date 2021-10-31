@@ -24,7 +24,7 @@ Value Println(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
 Value len(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     CHECK_PARAMETER_COUNT(values, 1);
     Value& arg = values.front();
-    return Value((long)arg.length());
+    return Value(arg.Length());
 }
 
 Value TypeOf(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
@@ -65,7 +65,7 @@ Value append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
         std::vector<Value>::iterator iter = values.begin();
         iter++;
         while (iter != values.end()) {
-            to._array.push_back(*iter);
+            to._array().push_back(*iter);
             iter++;
         }
         return to;
@@ -82,10 +82,10 @@ Value append(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
                 to.bytes.append(1, (unsigned char)iter->Integer);
                 break;
             case ValueType::kArray:
-                if (!IsIntegerArray(iter->_array)) {
+                if (!IsIntegerArray(iter->_array())) {
                     throw RuntimeException("only integer array can append to bytes");
                 }
-                AppendIntegerArrayToBytes(to, iter->_array);
+                AppendIntegerArrayToBytes(to, iter->_array());
                 break;
             default:
                 throw RuntimeException(iter->ToString() + " can't append to bytes");
@@ -139,11 +139,11 @@ Value MakeBytes(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
             return Value::make_bytes(values[0].bytes);
         }
         if (values[0].Type == ValueType::kArray) {
-            if (!IsIntegerArray(values[0]._array)) {
+            if (!IsIntegerArray(values[0]._array())) {
                 throw RuntimeException("make bytes must use integer array");
             }
             Value ret = Value::make_bytes("");
-            AppendIntegerArrayToBytes(ret, values[0]._array);
+            AppendIntegerArrayToBytes(ret, values[0]._array());
             return ret;
         }
     }
@@ -167,11 +167,11 @@ Value MakeString(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
             return Value(values[0].ToString());
         }
         if (values[0].Type == ValueType::kArray) {
-            if (!IsIntegerArray(values[0]._array)) {
+            if (!IsIntegerArray(values[0]._array())) {
                 throw RuntimeException("convert to string must use integer array");
             }
             Value ret = Value::make_bytes("");
-            AppendIntegerArrayToBytes(ret, values[0]._array);
+            AppendIntegerArrayToBytes(ret, values[0]._array());
             ret.Type = ValueType::kString;
             return ret;
         }
@@ -204,7 +204,7 @@ Value HexDecodeString(std::vector<Value>& values, VMContext* ctx, Executor* vm) 
     if (arg.Type != ValueType::kString) {
         throw RuntimeException("HexDecodeString parameter must a string");
     }
-    if (arg.length() % 2 || arg.length() == 0) {
+    if (arg.Length() % 2 || arg.Length() == 0) {
         throw RuntimeException("HexDecodeString string length must be a multiple of 2");
     }
     size_t i = 0;
@@ -228,9 +228,8 @@ Value HexEncode(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     Value& arg = values.front();
     switch (arg.Type) {
     case ValueType::kBytes:
-        return Value(arg.ToString());
     case ValueType::kString:
-        return Value(Value::HexEncode(arg.bytes.c_str(), arg.bytes.size()));
+        return Value(HexEncode(arg.bytes.c_str(), arg.bytes.size()));
     case ValueType::kInteger:
         snprintf(buf, 16, "%llX", arg.Integer);
         return Value(buf);
@@ -288,20 +287,20 @@ bool IsBigEndianVM() {
 Value VMEnv(std::vector<Value>& values, VMContext* ctx, Executor* vm) {
     Value ret = Value::make_map();
     if (IsBigEndianVM()) {
-        ret._map[Value("ByteOrder")] = "BigEndian";
+        ret._map()[Value("ByteOrder")] = "BigEndian";
     } else {
-        ret._map[Value("ByteOrder")] = "LittleEndian";
+        ret._map()[Value("ByteOrder")] = "LittleEndian";
     }
-    ret._map["Size Of integer"] = Value(sizeof(Value::INTVAR));
-    ret._map["Engine Version"] = Value(VERSION);
+    ret._map()["Size Of integer"] = Value(sizeof(Value::INTVAR));
+    ret._map()["Engine Version"] = Value(VERSION);
 #ifdef __APPLE__
-    ret._map["OS"] = "Darwin";
+    ret._map()["OS"] = "Darwin";
 #endif
 #ifdef __WIN32__
-    ret._map["OS"] = "Windows";
+    ret._map()["OS"] = "Windows";
 #endif
 #ifdef __LINUX__
-    ret._map["OS"] = "Linux";
+    ret._map()["OS"] = "Linux";
 #endif
     return ret;
 }

@@ -50,18 +50,18 @@ public:
 
     Value ToValue() {
         Value ret = Value::make_map();
-        ret._map["version"] = Version;
-        ret._map["status"] = Status;
-        ret._map["reason"] = Reason;
-        ret._map["raw_header"] = RawHeader;
-        ret._map["body"] = Value::make_bytes(Body);
+        ret._map()["version"] = Version;
+        ret._map()["status"] = Status;
+        ret._map()["reason"] = Reason;
+        ret._map()["raw_header"] = RawHeader;
+        ret._map()["body"] = Value::make_bytes(Body);
         Value h = Value::make_map();
         std::vector<HeaderValue*>::iterator iter = Header.begin();
         while (iter != Header.end()) {
-            h._map[(*iter)->Name] = (*iter)->Value;
+            h._map()[(*iter)->Name] = (*iter)->Value;
             iter++;
         }
-        ret._map["headers"] = h;
+        ret._map()["headers"] = h;
         return ret;
     }
     //helper
@@ -599,7 +599,7 @@ Value URLQueryDecode(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
     if (parser_querys(args[0].bytes, result)) {
         auto iter = result.begin();
         while (iter != result.end()) {
-            ret._map[iter->first] = iter->second;
+            ret._map()[iter->first] = iter->second;
             iter++;
         }
     }
@@ -625,8 +625,8 @@ Value URLQueryEncode(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
     CHECK_PARAMETER_COUNT(1);
     CHECK_PARAMETER_MAP(0);
     std::string result = "";
-    auto iter = args[0]._map.begin();
-    while (iter != args[0]._map.end()) {
+    auto iter = args[0]._map().begin();
+    while (iter != args[0]._map().end()) {
         if (iter->first.Type != ValueType::kString && iter->first.Type != ValueType::kBytes) {
             throw RuntimeException("URLQueryEncode map key must string or bytes");
         }
@@ -677,25 +677,25 @@ Value URLParse(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
     std::map<std::string, std::string> querys;
     parser_url(args[0].bytes, scheme, host, port, path, querys);
     Value ret = Value::make_map();
-    ret._map["host"] = host;
-    ret._map["port"] = port;
-    ret._map["scheme"] = scheme;
-    ret._map["path"] = path;
+    ret._map()["host"] = host;
+    ret._map()["port"] = port;
+    ret._map()["scheme"] = scheme;
+    ret._map()["path"] = path;
     Value q = Value::make_map();
     auto iter = querys.begin();
     while (iter != querys.end()) {
-        q._map[iter->first] = iter->second;
+        q._map()[iter->first] = iter->second;
         iter++;
     }
-    ret._map["query"] = q;
+    ret._map()["query"] = q;
     return ret;
 }
 
 void BuildRequestHeader(Value val, std::string& forHost, std::string& port,
                         std::map<std::string, std::string>& result) {
     if (val.Type == ValueType::kMap) {
-        auto iter = val._map.begin();
-        while (iter != val._map.end()) {
+        auto iter = val._map().begin();
+        while (iter != val._map().end()) {
             if (iter->first.Type != ValueType::kString && iter->first.Type != ValueType::kBytes) {
                 throw RuntimeException("the httpheader map key must string or bytes");
             }

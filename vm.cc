@@ -71,8 +71,8 @@ Value Executor::GetAvailableFunction(VMContext* ctx) {
         iter++;
     }
     Value result = Value::make_map();
-    result._map[Value("script")] = ctx->GetTotalFunction();
-    result._map[Value("builtin")] = builtin;
+    result._map()[Value("script")] = ctx->GetTotalFunction();
+    result._map()[Value("builtin")] = builtin;
     return result;
 }
 
@@ -178,7 +178,7 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     //return indcate the action executed or not
     case Instructions::kContitionExpression: {
         Value val = Execute(GetInstruction(ins->Refs[0]), ctx);
-        if (val.ToBoolen()) {
+        if (val.ToBoolean()) {
             Execute(GetInstruction(ins->Refs[1]), ctx);
         }
         return val;
@@ -217,9 +217,9 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     case Instructions::kCreateArray:
         return ExecuteCreateArray(ins, ctx);
     case Instructions::kReadAt:
-        return ExecuteArrayReadWrite(ins, ctx);
+        return ExecuteReadAt(ins, ctx);
     case Instructions::kWriteAt:
-        return ExecuteArrayReadWrite(ins, ctx);
+        return ExecuteWriteAt(ins, ctx);
     case Instructions::kSlice:
         return ExecuteSlice(ins, ctx);
     default:
@@ -290,7 +290,7 @@ Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMConte
     const Instruction* tow = GetInstruction(ins->Refs[1]);
     const Instruction* three = GetInstruction(ins->Refs[2]);
     Value val = Execute(one, ctx);
-    if (val.ToBoolen()) {
+    if (val.ToBoolean()) {
         return Value();
     }
     if (ctx->IsExecutedInterupt()) {
@@ -301,7 +301,7 @@ Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMConte
         std::vector<const Instruction*>::iterator iter = branchs.begin();
         while (iter != branchs.end()) {
             val = Execute(*iter, ctx);
-            if (val.ToBoolen()) {
+            if (val.ToBoolean()) {
                 break;
             }
             if (ctx->IsExecutedInterupt()) {
@@ -310,7 +310,7 @@ Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMConte
             iter++;
         }
     }
-    if (val.ToBoolen()) {
+    if (val.ToBoolean()) {
         return Value();
     }
     if (three->OpCode == Instructions::kNop) {
@@ -324,7 +324,7 @@ Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr
     const Instruction* first = GetInstruction(ins->Refs[0]);
     Value firstVal = Execute(first, ctx);
     if (ins->OpCode == Instructions::kNOT) {
-        return Value(!firstVal.ToBoolen());
+        return Value(!firstVal.ToBoolean());
     }
     if (ins->OpCode == Instructions::kBNG) {
         return ~firstVal;
@@ -366,9 +366,9 @@ Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr
     case Instructions::kRSHIFT:
         return firstVal >> secondVal;
     case Instructions::kOR:
-        return Value(firstVal.ToBoolen() || secondVal.ToBoolen());
+        return Value(firstVal.ToBoolean() || secondVal.ToBoolean());
     case Instructions::kAND:
-        return Value(firstVal.ToBoolen() && secondVal.ToBoolen());
+        return Value(firstVal.ToBoolean() && secondVal.ToBoolean());
     default:
         LOG("Unknow OpCode:" + ins->ToString());
         return Value();
@@ -478,7 +478,7 @@ Value Executor::ExecuteForStatement(const Instruction* ins, scoped_refptr<VMCont
         if (!condition->IsNULL()) {
             val = Execute(condition, ctx);
         }
-        if (!val.ToBoolen()) {
+        if (!val.ToBoolean()) {
             break;
         }
         Execute(block, ctx);
@@ -512,11 +512,11 @@ Value Executor::ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMCo
         }
     } break;
     case ValueType::kArray: {
-        for (size_t i = 0; i < objVal._array.size(); i++) {
+        for (size_t i = 0; i < objVal._array().size(); i++) {
             if (key.size() > 0) {
                 ctx->SetVarValue(key, Value((long)i));
             }
-            ctx->SetVarValue(val, objVal._array[i]);
+            ctx->SetVarValue(val, objVal._array()[i]);
             Execute(body, ctx);
             ctx->CleanContinueFlag();
             if (ctx->IsExecutedInterupt()) {
@@ -525,8 +525,8 @@ Value Executor::ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMCo
         }
     } break;
     case ValueType::kMap: {
-        std::map<Value, Value>::iterator iter = objVal._map.begin();
-        while (iter != objVal._map.end()) {
+        std::map<Value, Value>::iterator iter = objVal._map().begin();
+        while (iter != objVal._map().end()) {
             if (key.size() > 0) {
                 ctx->SetVarValue(key, iter->first);
             }
@@ -563,7 +563,7 @@ Value Executor::ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext
         if (ctx->IsExecutedInterupt()) {
             return Value();
         }
-        val._map[keyVal] = valVal;
+        val._map()[keyVal] = valVal;
         iter++;
     }
     return val;
@@ -577,7 +577,7 @@ Value Executor::ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMConte
     Value val = Value::make_array();
     std::vector<const Instruction*>::iterator iter = items.begin();
     while (iter != items.end()) {
-        val._array.push_back(Execute((*iter), ctx));
+        val._array().push_back(Execute((*iter), ctx));
         if (ctx->IsExecutedInterupt()) {
             return Value();
         }
@@ -591,20 +591,36 @@ Value Executor::ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ct
     Value fromVal = Execute(from, ctx);
     Value toVal = Execute(to, ctx);
     Value opObj = ctx->GetVarValue(ins->Name);
-    return opObj.sub_slice(fromVal, toVal);
+    return opObj.Slice(fromVal, toVal);
 }
-Value Executor::ExecuteArrayReadWrite(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteWriteAt(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+    const Instruction* where = GetInstruction(ins->Refs[0]);
+    Value toObject = ctx->GetVarValue(ins->Name);
+    const Instruction* value = GetInstruction(ins->Refs[1]);
+    Value elementValue = Execute(value, ctx);
+    if (where->OpCode != Instructions::kGroup) {
+        Value index = Execute(where, ctx);
+        toObject.SetValue(index, elementValue);
+        return Value();
+    }
+    std::vector<const Instruction*> indexInsList = GetInstructions(where->Refs);
+    std::vector<Value> indexValues = InstructionToValue(indexInsList, ctx);
+    for (size_t i = 0; i < indexValues.size() - 1; i++) {
+        toObject = toObject[indexValues[i]];
+    }
+    toObject.SetValue(indexValues.back(),elementValue);
+    return Value();
+}
+Value Executor::ExecuteReadAt(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     const Instruction* where = GetInstruction(ins->Refs[0]);
     Value index = Execute(where, ctx);
-    Value opObj = ctx->GetVarValue(ins->Name);
-    if (ins->OpCode == Instructions::kReadAt) {
-        return opObj[index];
+    if (ins->Refs.size() == 1) {
+        Value fromObject = ctx->GetVarValue(ins->Name);
+        return fromObject[index];
     }
-    const Instruction* value = GetInstruction(ins->Refs[1]);
-    Value eleVal = Execute(value, ctx);
-    opObj.set_value(index, eleVal);
-    ctx->SetVarValue(ins->Name, opObj);
-    return opObj;
+    assert(ins->Name.size() == 0);
+    Value fromObject = Execute(GetInstruction(ins->Refs[1]), ctx);
+    return fromObject[index];
 }
 
 std::vector<Value> Executor::InstructionToValue(std::vector<const Instruction*> insList,

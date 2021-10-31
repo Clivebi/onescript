@@ -60,6 +60,7 @@ add_executable(Interpreter
     script.tab.cpp
     script.lex.cpp 
     vm.cc
+    value.cc
     main.cc 
     vmcontext.cc 
     modules/module.cc

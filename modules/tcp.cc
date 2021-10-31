@@ -18,7 +18,7 @@ Value TCPConnect(std::vector<Value>& args, VMContext* ctx, Executor* vm) {
     }
     CHECK_PARAMETER_INTEGER(2);
     CHECK_PARAMETER_INTEGER(3);
-    Resource* res = NewTCPStream(host, port, (int)args[2].Integer, args[3].ToBoolen());
+    Resource* res = NewTCPStream(host, port, (int)args[2].Integer, args[3].ToBoolean());
     if (res == NULL) {
         return Value();
     }

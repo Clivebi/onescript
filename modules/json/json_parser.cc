@@ -18,20 +18,20 @@ Value JSONValueToValue(json::JSONValue* val) {
     Value ret = Value();
     switch (val->Type) {
     case json::JSONValue::ARRAY: {
-        ret.Type = ValueType::kArray;
+        ret = Value::make_array();
         auto iter = val->Array.begin();
         while (iter != val->Array.end()) {
-            ret._array.push_back(JSONValueToValue(*iter));
+            ret._array().push_back(JSONValueToValue(*iter));
             iter++;
         }
         return ret;
     }
 
     case json::JSONValue::OBJECT: {
-        ret.Type = ValueType::kMap;
+        ret = Value::make_map();
         auto iter = val->Object.begin();
         while (iter != val->Object.end()) {
-            ret._map[iter->first] = JSONValueToValue(iter->second);
+            ret._map()[iter->first] = JSONValueToValue(iter->second);
             iter++;
         }
         return ret;

@@ -24,6 +24,8 @@ func httplib_test(){
     #resp = HttpPostForm("http://api.k780.com/",query,header);
     #resp = HttpGet(url,header);
     resp = HttpPost("http://api.k780.com/","application/x-www-form-urlencoded",URLQueryEncode(query),header);
+    var info = JSONDecode(resp["body"]);
+    Println(info["result"]["temperature"]);
     Println(string(resp["body"]));
 
 }

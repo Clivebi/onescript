@@ -91,6 +91,7 @@ public:
     Instruction* CreateMap(Instruction* list);
     Instruction* CreateArray(Instruction* list);
     Instruction* VarReadAtExpression(const std::string& name, Instruction* where);
+    Instruction* VarReadAtExpression(Instruction* obj, Instruction* where);
     Instruction* VarUpdateAtExression(const std::string& name, Instruction* where,
                                       Instruction* value);
     Instruction* VarSlice(const std::string& name, Instruction* from, Instruction* to);

@@ -50,7 +50,8 @@ protected:
     Value ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ctx);
-    Value ExecuteArrayReadWrite(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteWriteAt(const Instruction* ins, scoped_refptr<VMContext> ctx);
+    Value ExecuteReadAt(const Instruction* ins, scoped_refptr<VMContext> ctx);
     Value ExecuteSwitchStatement(const Instruction* ins, scoped_refptr<VMContext> ctx);
     RUNTIME_FUNCTION GetBuiltinMethod(const std::string& name);
     const Instruction* GetInstruction(Instruction::keyType key);
