@@ -136,7 +136,7 @@ std::string MapObject::ToString() const {
         if (!first) {
             o << ",";
         }
-        o << iter->first.ToString();
+        o << iter->first.MapKey();
         o << ":";
         o << iter->second.ToString();
         first = false;
@@ -268,6 +268,7 @@ std::string Value::ToString() const {
     case ValueType::kObject:
         return object->ToString();
     case ValueType::kBytes:
+        return HexEncode(bytes.c_str(),bytes.size());
     case ValueType::kString:
         return bytes;
     case ValueType::kNULL:
@@ -327,15 +328,14 @@ std::string Value::MapKey() const {
     case ValueType::kNULL:
         return "nil@nil";
     case ValueType::kInteger:
-        return "integer@:" + Interpreter::ToString(Integer);
+        return "integer@" + Interpreter::ToString(Integer);
     case ValueType::kFloat:
-        return "float@:" + Interpreter::ToString(Float);
+        return "float@" + Interpreter::ToString(Float);
     case ValueType::kResource:
         return "resource@" + Interpreter::ToString((int64_t)resource.get());
     default:
         return "unknown";
     }
-    return ToString();
 }
 size_t Value::Length() {
     if (IsStringOrBytes()) {

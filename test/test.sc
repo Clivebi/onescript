@@ -64,6 +64,7 @@ func test_basic_convert(){
     var buf6= append(buf,0x20,buf4);
 
     assertEqual(buf5,buf6);
+    Println(buf6);
 
     #convert bytes to string 
     var strTemp = string(buf5);
@@ -218,16 +219,14 @@ func test_array_map(){
     }
     assertEqual(len(_full_paths),len(_dirs)*len(_files));
 
-    #dic key type must same type
     var dic = {"accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
      "accept-encoding":"gzip, deflate, br",
      "referer":"https://www.google.com/",
      "accpet-languare":"zh-CN,zh;q=0.9,en;q=0.8",
      "X":1000
     };
-
-    #this expression will throw runtime exception
-    #dic[800]= "800";
+    
+    dic[800]= "800";
 
     assertEqual(typeof(dic),"map");
     assertEqual(len(dic),5);
@@ -236,11 +235,22 @@ func test_array_map(){
     assertEqual(dic["800"],"800");
     assertEqual(dic["accept-encoding"],"gzip, deflate, br");
 
-    #that is ok,the key is same
     var dic2 ={100:"100",200:"200",300:"300",400:"400",3.14:3.1415926};
     assertEqual(dic2[100],"100");
     assertEqual(dic2[3.14],3.1415926);
 }
+
+func map_test_ex(){
+    var dic = {};
+    var dic2 = {"name":"wawa","type":"aaaa",100:"459","100":"900"};
+    dic["test"] = dic2;
+    assertEqual(dic2[100],"459");
+    assertEqual(dic2["100"],"900");
+    dic2[3.1415926]= "pi";
+    Println(dic2);
+    Println(dic);
+}
+map_test_ex();
 
 test_array_map();
 
