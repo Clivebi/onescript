@@ -615,6 +615,11 @@ bool operator==(const Value& left, const Value& right) {
     if (left.IsStringOrBytes() && right.IsStringOrBytes()) {
         return left.bytes == right.bytes;
     }
+    //if (left.IsStringOrBytes() || right.IsStringOrBytes()) {
+    //    if (left.IsInteger() || right.IsInteger()) {
+    //        return left.ToString() == right.ToString();
+    // //   }
+    //}
     if (!left.IsSameType(right)) {
         return false;
     }

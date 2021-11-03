@@ -24,7 +24,7 @@ void yyerror(Interpreter::Parser * parser,const char *s);
         BREAK CONTINUE RETURN COMMA STRING_LITERAL COLON ADDASSIGN SUBASSIGN
         MULASSIGN DIVASSIGN INC DEC NOT LB RB IN SWITCH CASE DEFAULT
         BOR BAND BXOR BNG LSHIFT RSHIFT  BORASSIGN BANDASSIGN BXORASSIGN 
-        LSHIFTASSIGN RSHIFTASSIGN OR AND
+        LSHIFTASSIGN RSHIFTASSIGN OR AND POINT
 
 %token <value_integer> INT_LITERAL
 %token <value_double>  DOUBLE_LITERAL
@@ -70,7 +70,7 @@ void yyerror(Interpreter::Parser * parser,const char *s);
 %type <object> for_init for_statement for_condition for_update
 %type <object> break_expression continue_expression 
 %type <object> map_value array_value map_item map_item_list
-%type <object> read_at_index slice index_to_write key_value write_indexer
+%type <object> read_at_index slice index_to_write key_value write_indexer read_with_id
 %type <object> for_in_statement
 %type <object> case_item case_item_list switch_case_statement const_value_list
 %type <object> anonymous_func_declaration
@@ -387,6 +387,10 @@ value_expression: const_value
         {
                 $$=$1;
         }
+        |read_with_id
+        {
+                $$=$1;
+        }
         ;
 
 
@@ -595,6 +599,9 @@ key_value:math_expression
         |IDENTIFIER{
                 $$=parser->VarReadExpresion($1);
         }
+        |read_at_index{
+                $$=$1;
+        }
         ;
 
 read_at_index:IDENTIFIER LB key_value RB
@@ -606,6 +613,15 @@ read_at_index:IDENTIFIER LB key_value RB
                 $$=parser->VarReadAtExpression($1,$3); 
         }
         ;
+
+read_with_id:IDENTIFIER POINT IDENTIFIER
+        {
+                $$=parser->VarReadAtExpression($1,$3);
+        }
+        |read_with_id POINT IDENTIFIER
+        {
+                $$=parser->VarReadAtExpression($1,$3);
+        };
 
 slice:IDENTIFIER LB key_value COLON key_value RB
         {

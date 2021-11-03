@@ -224,6 +224,14 @@ Instruction* Parser::VarReadAtExpression(const std::string& name, Instruction* w
     }
     return obj;
 }
+Instruction* Parser::VarReadAtExpression(const std::string& name, const std::string& key) {
+    Instruction* where = CreateConst(key);
+    return VarReadAtExpression(name, where);
+}
+Instruction* Parser::VarReadAtExpression(Instruction* obj, const std::string& key) {
+    Instruction* where = CreateConst(key);
+    return VarReadAtExpression(obj, where);
+}
 Instruction* Parser::VarReadAtExpression(Instruction* fromObj, Instruction* where) {
     Instruction* obj = mScript->NewInstruction(where, fromObj);
     obj->OpCode = Instructions::kReadAt;

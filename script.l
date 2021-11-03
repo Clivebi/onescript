@@ -78,6 +78,7 @@ int yywrap(void)
 <INITIAL>">>="       return RSHIFTASSIGN;
 <INITIAL>"||"        return OR;
 <INITIAL>"&&"        return AND;
+<INITIAL>"."         return POINT;
 
 <INITIAL>[A-Za-z_][A-Za-z_0-9]* {
     yylval.identifier = parser->CreateString(yytext);

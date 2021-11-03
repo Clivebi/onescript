@@ -51,14 +51,21 @@ public:
     Value ToValue() {
         Value ret = Value::make_map();
         ret._map()["version"] = Version;
-        ret._map()["status"] = Status;
+        ret._map()["status"] = Value(strtol(Status.c_str(), NULL, 0));
         ret._map()["reason"] = Reason;
         ret._map()["raw_header"] = RawHeader;
         ret._map()["body"] = Value::make_bytes(Body);
         Value h = Value::make_map();
         std::vector<HeaderValue*>::iterator iter = Header.begin();
         while (iter != Header.end()) {
-            h._map()[(*iter)->Name] = (*iter)->Value;
+            auto exist = h._map().find((*iter)->Name);
+            if (exist != h._map().end()) {
+                exist->second._array().push_back((*iter)->Value);
+            } else {
+                Value val = Value::make_array();
+                val._array().push_back((*iter)->Value);
+                h._map()[(*iter)->Name] = val;
+            }
             iter++;
         }
         ret._map()["headers"] = h;

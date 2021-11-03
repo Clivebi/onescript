@@ -30,4 +30,142 @@ func httplib_test(){
 
 }
 
+#https://192.168.0.100/restgui/locale/strings/locale_str_zh.json
+#https://192.168.0.100/sysmgmt/2015/bmc/info
+#https://192.168.0.105/session?aimGetProp=hostname,gui_str_title_bar,OEMHostName,fwVersion,sysDesc
+
+#Set-Cookie: BAIDUID=B0DD2903252BCFB8B658166A1E1A227D:FG=1; expires=Thu, 31-Dec-37 23:55:55 GMT; max-age=2147483647; path=/; domain=.baidu.com
+func line_to_value_pair(line,split){
+    var pos = IndexString(line,split);
+    if(pos < 0 || pos >= (len(line)-1)){
+        return nil;
+    }
+    return[line[0:pos],line[pos+1:]];
+}
+#parse http response set-Cookie in dic
+func parse_set_cookies(httpResponse){
+    var i,v,v2;
+    var setCookies = httpResponse["headers"]["Set-Cookie"];
+    var fieldType = typeof(setCookies);
+    var result =[];
+    if(fieldType != "array"){
+        return nil;
+    }
+    var splitResult,temp,item;
+    for v in setCookies{
+        item = {};
+        splitResult = SplitString(v,";");
+        for i,v2 in splitResult{
+            if(i==0){
+                item["value"] = v2;
+                continue;
+            }
+            temp = line_to_value_pair(v2,"=");
+            if(temp != nil){
+                item[temp[0]] = temp[1];
+            }
+        }
+        result = append(result,item);
+    }
+    return result;
+}
+
+func http_get_with_handle_redirect(fromURL,deep){
+    var header ={"Connection":"close"};
+    header["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9";
+    header["Accept-Encoding"] = "gzip, deflate, br";
+    header["Accept-Language"] = "zh-CN,zh;q=0.9,en;q=0.8";
+    header["User-Agent"]="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36";
+    if(deep > 6){
+        return nil;
+    }
+    var resp =  HttpGet(fromURL,header);
+    if(resp.status == 302){
+        var location = resp.headers.Location;
+        location = location[0];
+        if(location != nil && len(location) >0){
+            var cookiejar = parse_set_cookies(resp);
+            if(cookiejar != nil){
+                var cookies = "",v;
+                for v in cookiejar{
+                    if(len(cookies)){
+                        cookies += "; ";
+                    }
+                    cookies += v.value;
+                }
+                header["Cookies"] = cookies;
+            }
+            Println(fromURL,"-->",location);
+            return http_get_with_handle_redirect(location,deep+1);
+        }
+    }
+    return resp;
+}
+
+
+func do_http_request(Url){
+        return http_get_with_handle_redirect(Url,0);
+}
+
+func detect_idrac(host,port){
+    var result = {};
+    var url = "https://"+host;
+    if(port != 80 && port != 443){
+        url +=port;
+    }
+    var resp = do_http_request(url+"/restgui/locale/strings/locale_str_en.json");
+    if(resp.status == 200){
+        if(ContainsString(resp["body"],"Integrated Dell Remote Access Controller 9")){
+            resp = do_http_request(url+"/sysmgmt/2015/bmc/info");
+            if(resp.status == 200){
+                var info=JSONDecode(resp["body"]);
+                result["AppName"] = "Integrated Dell Remote Access Controller 9";
+                result["Version"] = info.Attributes.FwVer;
+                result["UniqueName"] ="IDRAC9";
+                result["Name"] = info.Attributes.iDRACName;
+                result["Model"]=info.Attributes.SystemModelName;
+                return result;
+            }
+        }
+        Println(resp.raw_header);
+    }
+    var generation = "7";
+    resp = do_http_request(url+"/data?get=prodServerGen");
+    if(resp["status"] == 200){
+        if(ContainsString(resp["body"],"13G")){
+            generation ="8";
+        }else if(ContainsString(resp["body"],"12G")){
+            generation = "7";
+        }else{
+            generation = "other";
+        }
+    }
+    resp = do_http_request(url+"/session?aimGetProp=hostname,gui_str_title_bar,OEMHostName,fwVersion,sysDesc");
+    if(resp["status"] == 200){
+        var info = JSONDecode(resp["body"]);
+        result["AppName"] = "Integrated Dell Remote Access Controller "+generation;
+        result["Version"] = info["aimGetProp"]["fwVersion"];
+        result["UniqueName"] ="IDRAC "+generation;
+        result["Name"] = info["aimGetProp"]["hostname"];
+        result["Model"]=info["aimGetProp"]["sysDesc"];
+        return result;
+    }
+    return result;
+}
+
+func test_detect_idar(){
+    var detect_result = detect_idrac("192.168.0.100",443);
+    Println(detect_result);
+
+    detect_result = detect_idrac("192.168.0.105",443);
+    Println(detect_result);
+
+    detect_result = detect_idrac("192.168.0.106",443);
+    Println(detect_result);
+}
+
+test_detect_idar();
+
+var  lastResult = do_http_request("http://www.baidu.com/");
+
 httplib_test();

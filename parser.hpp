@@ -49,7 +49,7 @@ public:
     //null instruction do nothing
     Instruction* NULLObject();
     //instruction list
-    Instruction* CreateList(const std::string& typeName,Instruction* element);
+    Instruction* CreateList(const std::string& typeName, Instruction* element);
     Instruction* AddToList(Instruction* list, Instruction* element);
 
     //var declaration read & write
@@ -91,7 +91,9 @@ public:
     Instruction* CreateMap(Instruction* list);
     Instruction* CreateArray(Instruction* list);
     Instruction* VarReadAtExpression(const std::string& name, Instruction* where);
+    Instruction* VarReadAtExpression(const std::string& name, const std::string& where);
     Instruction* VarReadAtExpression(Instruction* obj, Instruction* where);
+    Instruction* VarReadAtExpression(Instruction* obj, const std::string& where);
     Instruction* VarUpdateAtExression(const std::string& name, Instruction* where,
                                       Instruction* value);
     Instruction* VarSlice(const std::string& name, Instruction* from, Instruction* to);
