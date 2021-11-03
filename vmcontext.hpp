@@ -8,7 +8,7 @@
 
 namespace Interpreter {
 
-class VMContext:public CRefCountedThreadSafe<VMContext> {
+class VMContext : public CRefCountedThreadSafe<VMContext> {
 public:
     enum Type {
         File,
@@ -33,21 +33,22 @@ protected:
     Value mReturnValue;
     VMContext();
     VMContext(const VMContext&);
-    VMContext& operator = (const VMContext&);
+    VMContext& operator=(const VMContext&);
+
 public:
     VMContext(Type type, VMContext* Parent);
     ~VMContext();
 
-    void SetEnableWarning(bool val){mIsEnableWarning = val;}
+    void SetEnableWarning(bool val) { mIsEnableWarning = val; }
 
-    bool IsTop(){return mParent == NULL;}
+    bool IsTop() { return mParent == NULL; }
     bool IsExecutedInterupt() { return (mFlags & 0xFF); }
     void CleanContinueFlag() { mFlags &= 0xFE; }
     void BreakExecuted();
     void ContinueExecuted();
     void ExitExecuted(Value exitCode);
     void ReturnExecuted(Value retVal);
-    Value GetReturnValue(){return mReturnValue;}
+    Value GetReturnValue() { return mReturnValue; }
 
     bool IsReturnAvaliable() { return IsInFunctionContext(); }
     bool IsBreakAvaliable() { return mType == For || mType == Switch; }
@@ -56,8 +57,8 @@ public:
 
     void AddVar(const std::string& name);
     void SetVarValue(const std::string& name, Value value);
+    bool GetVarValue(const std::string& name, Value& val);
     Value GetVarValue(const std::string& name);
-
     void AddFunction(const Instruction* function);
     const Instruction* GetFunction(const std::string& name);
 

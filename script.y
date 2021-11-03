@@ -73,6 +73,7 @@ void yyerror(Interpreter::Parser * parser,const char *s);
 %type <object> read_at_index slice index_to_write key_value write_indexer
 %type <object> for_in_statement
 %type <object> case_item case_item_list switch_case_statement const_value_list
+%type <object> anonymous_func_declaration
 %%
 
 %start  startstatement;
@@ -290,6 +291,15 @@ func_declaration:FUNCTION IDENTIFIER LP formal_parameterlist RP block
         }
         ;
 
+anonymous_func_declaration:FUNCTION LP formal_parameterlist RP block
+        {
+                $$=parser->CreateFunction("",$3,$5);
+        }
+        |FUNCTION LP RP block{
+                $$=parser->CreateFunction("",NULL,$4);
+        }
+        ;
+
 func_call_expression: IDENTIFIER LP value_list RP
         {
                 $$=parser->CreateFunctionCall($1,$3);
@@ -372,6 +382,10 @@ value_expression: const_value
         | SUB value_expression %prec UMINUS
         {
                 $$=parser->CreateMinus($2);
+        }
+        |anonymous_func_declaration
+        {
+                $$=$1;
         }
         ;
 

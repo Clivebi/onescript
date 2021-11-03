@@ -166,14 +166,90 @@ Value::Value(const char* str)
         : Type(ValueType::kString), Integer(0), bytes(str), resource(NULL), object(NULL) {}
 Value::Value(std::string val)
         : Type(ValueType::kString), Integer(0), bytes(val), resource(NULL), object(NULL) {}
-Value::Value(const Value& val)
-        : Type(val.Type), bytes(val.bytes), resource(val.resource), object(val.object) {
-    if (val.IsNumber()) {
+
+Value::Value(const Instruction* f)
+        : Type(ValueType::kFunction), Function(f), bytes(), resource(NULL), object(NULL) {}
+Value::Value(RUNTIME_FUNCTION f)
+        : Type(ValueType::kRuntimeFunction),
+          RuntimeFunction(f),
+          bytes(),
+          resource(NULL),
+          object(NULL) {}
+
+Value::Value(const Value& val) {
+    switch (val.Type) {
+    case ValueType::kBytes:
+    case ValueType::kString:
+        Integer = 0;
+        bytes = val.bytes;
+        break;
+    case ValueType::kResource:
+        Integer = 0;
+        resource = val.resource;
+        break;
+    case ValueType::kInteger:
+        Integer = val.Integer;
+        break;
+    case ValueType::kArray:
+    case ValueType::kMap:
+    case ValueType::kObject:
+        object = val.object;
+        Integer = 0;
+        break;
+    case ValueType::kFloat:
         Float = val.Float;
-        if (val.IsInteger()) {
-            Integer = val.Integer;
-        }
+        break;
+    case ValueType::kFunction:
+        Function = val.Function;
+        break;
+    case ValueType::kRuntimeFunction:
+        RuntimeFunction = val.RuntimeFunction;
+        break;
+    case ValueType::kNULL:
+        Integer = 0;
+        break;
+    default:
+        throw RuntimeException("unknown value type!!!");
     }
+    Type = val.Type;
+}
+Value& Value::operator=(const Value& val) {
+    switch (val.Type) {
+    case ValueType::kBytes:
+    case ValueType::kString:
+        Integer = 0;
+        bytes = val.bytes;
+        break;
+    case ValueType::kResource:
+        Integer = 0;
+        resource = val.resource;
+        break;
+    case ValueType::kInteger:
+        Integer = val.Integer;
+        break;
+    case ValueType::kArray:
+    case ValueType::kMap:
+    case ValueType::kObject:
+        object = val.object;
+        Integer = 0;
+        break;
+    case ValueType::kFloat:
+        Float = val.Float;
+        break;
+    case ValueType::kFunction:
+        Function = val.Function;
+        break;
+    case ValueType::kRuntimeFunction:
+        RuntimeFunction = val.RuntimeFunction;
+        break;
+    case ValueType::kNULL:
+        Integer = 0;
+        break;
+    default:
+        throw RuntimeException("unknown value type!!!");
+    }
+    Type = val.Type;
+    return *this;
 }
 
 Value::Value(Resource* res)
@@ -201,20 +277,6 @@ Value Value::make_map() {
     ret.Type = ValueType::kMap;
     ret.object = new MapObject();
     return ret;
-}
-
-Value& Value::operator=(const Value& right) {
-    Type = right.Type;
-    bytes = right.bytes;
-    resource = right.resource;
-    object = right.object;
-    if (right.IsNumber()) {
-        Float = right.Float;
-        if (right.IsInteger()) {
-            Integer = right.Integer;
-        }
-    }
-    return *this;
 }
 
 Value& Value::operator+=(const Value& right) {
@@ -268,7 +330,7 @@ std::string Value::ToString() const {
     case ValueType::kObject:
         return object->ToString();
     case ValueType::kBytes:
-        return HexEncode(bytes.c_str(),bytes.size());
+        return HexEncode(bytes.c_str(), bytes.size());
     case ValueType::kString:
         return bytes;
     case ValueType::kNULL:

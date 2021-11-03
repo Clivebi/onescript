@@ -137,17 +137,25 @@ bool VMContext::IsShadowName(const std::string& name) {
     return false;
 }
 
-Value VMContext::GetVarValue(const std::string& name) {
+bool VMContext::GetVarValue(const std::string& name, Value& val) {
     VMContext* ctx = this;
     while (ctx != NULL) {
         std::map<std::string, Value>::iterator iter = ctx->mVars.find(name);
         if (iter != ctx->mVars.end()) {
-            Value ret = iter->second;
-            return ret;
+            val = iter->second;
+            return true;
         }
         ctx = ctx->mParent;
     }
+    return false;
     throw RuntimeException("variable not found :" + name);
+}
+Value VMContext::GetVarValue(const std::string& name) {
+    Value ret;
+    if (!GetVarValue(name, ret)) {
+        throw RuntimeException("variable not found :" + name);
+    }
+    return ret;
 }
 
 void VMContext::AddFunction(const Instruction* obj) {
@@ -185,8 +193,7 @@ Value VMContext::GetTotalFunction() {
     }
     std::vector<Value> functions;
     std::map<std::string, const Instruction*>::iterator iter = ctx->mFunctions.begin();
-    while (iter != ctx->mFunctions.end())
-    {
+    while (iter != ctx->mFunctions.end()) {
         functions.push_back(Value(iter->first));
         iter++;
     }

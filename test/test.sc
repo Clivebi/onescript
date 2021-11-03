@@ -229,7 +229,7 @@ func test_array_map(){
     dic[800]= "800";
 
     assertEqual(typeof(dic),"map");
-    assertEqual(len(dic),5);
+    assertEqual(len(dic),6);
     assertEqual(dic["X"],1000);
     dic["800"]= "800";
     assertEqual(dic["800"],"800");
@@ -378,3 +378,12 @@ if(_is_test_passed){
     Println("some test not passed");
 }
 
+var log =Println;
+
+log("hello"," world!");
+
+var func2 = func(a,b){
+    Println(a,b);
+};
+
+func2("text1","text2");

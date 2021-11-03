@@ -41,7 +41,7 @@ RUNTIME_FUNCTION Executor::GetBuiltinMethod(const std::string& name) {
     return iter->second;
 }
 
-void Executor::RequireScript(const std::string& name, scoped_refptr<VMContext> ctx) {
+void Executor::RequireScript(const std::string& name, VMContext* ctx) {
     std::list<scoped_refptr<Script>>::iterator iter = mScriptList.begin();
     while (iter != mScriptList.end()) {
         if ((*iter)->Name == name) {
@@ -116,7 +116,7 @@ Value Executor::GetConstValue(Instruction::keyType key) {
     throw RuntimeException("unknown const key");
 }
 
-Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::Execute(const Instruction* ins, VMContext* ctx) {
     //LOG("execute " + ins->ToString());
     if (ctx->IsExecutedInterupt()) {
         LOG("Instruction execute interupted :" + ins->ToString());
@@ -143,7 +143,7 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
         return Value();
     }
     case Instructions::kReadVar:
-        return ctx->GetVarValue(ins->Name);
+        return GetVarOrFunction(ins->Name, ctx);
     case Instructions::kMinus: {
         Value val = Execute(GetInstruction(ins->Refs.front()), ctx);
         switch (val.Type) {
@@ -158,8 +158,11 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
         }
     }
     case Instructions::kNewFunction: {
-        ctx->AddFunction(ins);
-        return Value();
+        if (ins->Name.size()) {
+            ctx->AddFunction(ins);
+            return Value();
+        }
+        return Value(ins);
     }
     case Instructions::kCallFunction: {
         return CallFunction(ins, ctx);
@@ -190,17 +193,17 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     }
 
     case Instructions::kFORStatement: {
-        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
+        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::For, ctx);
         ExecuteForStatement(ins, newCtx);
         return Value();
     }
     case Instructions::kForInStatement: {
-        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::For, ctx.get());
+        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::For, ctx);
         ExecuteForInStatement(ins, newCtx);
         return Value();
     }
     case Instructions::kSwitchCaseStatement: {
-        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Switch, ctx.get());
+        scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Switch, ctx);
         ExecuteSwitchStatement(ins, newCtx);
         return Value();
     }
@@ -228,7 +231,7 @@ Value Executor::Execute(const Instruction* ins, scoped_refptr<VMContext> ctx) {
     }
 }
 
-Value Executor::ExecuteUpdateVar(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteUpdateVar(const Instruction* ins, VMContext* ctx) {
     Value val;
     if (ins->Refs.size()) {
         val = Execute(GetInstruction(ins->Refs[0]), ctx);
@@ -285,7 +288,7 @@ Value Executor::ExecuteUpdateVar(const Instruction* ins, scoped_refptr<VMContext
     return oldVal;
 }
 
-Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteIfStatement(const Instruction* ins, VMContext* ctx) {
     const Instruction* one = GetInstruction(ins->Refs[0]);
     const Instruction* tow = GetInstruction(ins->Refs[1]);
     const Instruction* three = GetInstruction(ins->Refs[2]);
@@ -320,7 +323,7 @@ Value Executor::ExecuteIfStatement(const Instruction* ins, scoped_refptr<VMConte
     return Value();
 }
 
-Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteArithmeticOperation(const Instruction* ins, VMContext* ctx) {
     const Instruction* first = GetInstruction(ins->Refs[0]);
     Value firstVal = Execute(first, ctx);
     if (ins->OpCode == Instructions::kNOT) {
@@ -375,7 +378,7 @@ Value Executor::ExecuteArithmeticOperation(const Instruction* ins, scoped_refptr
     }
 }
 
-Value Executor::ExecuteList(std::vector<const Instruction*> insList, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteList(std::vector<const Instruction*> insList, VMContext* ctx) {
     std::vector<const Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
         Execute(*iter, ctx);
@@ -387,19 +390,34 @@ Value Executor::ExecuteList(std::vector<const Instruction*> insList, scoped_refp
     return Value();
 }
 
-Value Executor::CallFunction(const Instruction* ins, scoped_refptr<VMContext> ctx) {
-    const Instruction* func = ctx->GetFunction(ins->Name);
-    if (func == NULL) {
-        RUNTIME_FUNCTION method = GetBuiltinMethod(ins->Name);
-        if (method == NULL) {
-            throw RuntimeException("call unknown function name:" + ins->Name);
-        }
-        return CallRutimeFunction(ins, ctx, method);
+Value Executor::GetVarOrFunction(const std::string& name, VMContext* ctx) {
+    Value ret;
+    if (ctx->GetVarValue(name, ret)) {
+        return ret;
     }
-    return CallScriptFunction(ins, ctx, func);
+    const Instruction* func = ctx->GetFunction(name);
+    if (func != NULL) {
+        return Value(func);
+    }
+    RUNTIME_FUNCTION method = GetBuiltinMethod(name);
+    if (method == NULL) {
+        throw RuntimeException("variable not found :" + name);
+    }
+    return Value(method);
 }
 
-Value Executor::CallRutimeFunction(const Instruction* ins, scoped_refptr<VMContext> ctx,
+Value Executor::CallFunction(const Instruction* ins, VMContext* ctx) {
+    Value func = GetVarOrFunction(ins->Name, ctx);
+    if (func.Type == ValueType::kRuntimeFunction) {
+        return CallRutimeFunction(ins, ctx, func.RuntimeFunction);
+    } else if (func.Type == ValueType::kFunction) {
+        return CallScriptFunction(ins, ctx, func.Function);
+    } else {
+        throw RuntimeException("can't as function called :" + ins->Name);
+    }
+}
+
+Value Executor::CallRutimeFunction(const Instruction* ins, VMContext* ctx,
                                    RUNTIME_FUNCTION method) {
     std::vector<Value> actualValues;
     if (ins->Refs.size() == 1) {
@@ -408,11 +426,11 @@ Value Executor::CallRutimeFunction(const Instruction* ins, scoped_refptr<VMConte
     if (ctx->IsExecutedInterupt()) {
         return ctx->GetReturnValue();
     }
-    Value val = method(actualValues, ctx.get(), this);
+    Value val = method(actualValues, ctx, this);
     return val;
 }
 
-Value Executor::CallScriptFunction(const Instruction* ins, scoped_refptr<VMContext> ctx,
+Value Executor::CallScriptFunction(const Instruction* ins, VMContext* ctx,
                                    const Instruction* func) {
     std::vector<Value> actualValues;
     scoped_refptr<VMContext> newCtx = new VMContext(VMContext::Function, ctx);
@@ -467,7 +485,7 @@ Value Executor::CallScriptFunction(const std::string& name, std::vector<Value>& 
     return val;
 }
 
-Value Executor::ExecuteForStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteForStatement(const Instruction* ins, VMContext* ctx) {
     const Instruction* init = GetInstruction(ins->Refs[0]);
     const Instruction* condition = GetInstruction(ins->Refs[1]);
     const Instruction* after = GetInstruction(ins->Refs[2]);
@@ -491,7 +509,7 @@ Value Executor::ExecuteForStatement(const Instruction* ins, scoped_refptr<VMCont
     return Value();
 }
 
-Value Executor::ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteForInStatement(const Instruction* ins, VMContext* ctx) {
     const Instruction* iter_able_obj = GetInstruction(ins->Refs[0]);
     const Instruction* body = GetInstruction(ins->Refs[1]);
     std::list<std::string> key_val = split(ins->Name, ',');
@@ -547,7 +565,7 @@ Value Executor::ExecuteForInStatement(const Instruction* ins, scoped_refptr<VMCo
     return Value();
 }
 
-Value Executor::ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteCreateMap(const Instruction* ins, VMContext* ctx) {
     const Instruction* list = GetInstruction(ins->Refs[0]);
     if (list->OpCode == Instructions::kNop) {
         return Value::make_map();
@@ -568,7 +586,7 @@ Value Executor::ExecuteCreateMap(const Instruction* ins, scoped_refptr<VMContext
     }
     return val;
 }
-Value Executor::ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteCreateArray(const Instruction* ins, VMContext* ctx) {
     const Instruction* list = GetInstruction(ins->Refs[0]);
     if (list->OpCode == Instructions::kNop) {
         return Value::make_array();
@@ -585,7 +603,7 @@ Value Executor::ExecuteCreateArray(const Instruction* ins, scoped_refptr<VMConte
     }
     return val;
 }
-Value Executor::ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteSlice(const Instruction* ins, VMContext* ctx) {
     const Instruction* from = GetInstruction(ins->Refs[0]);
     const Instruction* to = GetInstruction(ins->Refs[1]);
     Value fromVal = Execute(from, ctx);
@@ -593,7 +611,7 @@ Value Executor::ExecuteSlice(const Instruction* ins, scoped_refptr<VMContext> ct
     Value opObj = ctx->GetVarValue(ins->Name);
     return opObj.Slice(fromVal, toVal);
 }
-Value Executor::ExecuteWriteAt(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteWriteAt(const Instruction* ins, VMContext* ctx) {
     const Instruction* where = GetInstruction(ins->Refs[0]);
     Value toObject = ctx->GetVarValue(ins->Name);
     const Instruction* value = GetInstruction(ins->Refs[1]);
@@ -608,10 +626,10 @@ Value Executor::ExecuteWriteAt(const Instruction* ins, scoped_refptr<VMContext> 
     for (size_t i = 0; i < indexValues.size() - 1; i++) {
         toObject = toObject[indexValues[i]];
     }
-    toObject.SetValue(indexValues.back(),elementValue);
+    toObject.SetValue(indexValues.back(), elementValue);
     return Value();
 }
-Value Executor::ExecuteReadAt(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteReadAt(const Instruction* ins, VMContext* ctx) {
     const Instruction* where = GetInstruction(ins->Refs[0]);
     Value index = Execute(where, ctx);
     if (ins->Refs.size() == 1) {
@@ -624,7 +642,7 @@ Value Executor::ExecuteReadAt(const Instruction* ins, scoped_refptr<VMContext> c
 }
 
 std::vector<Value> Executor::InstructionToValue(std::vector<const Instruction*> insList,
-                                                scoped_refptr<VMContext> ctx) {
+                                                VMContext* ctx) {
     std::vector<Value> result;
     std::vector<const Instruction*>::iterator iter = insList.begin();
     while (iter != insList.end()) {
@@ -637,7 +655,7 @@ std::vector<Value> Executor::InstructionToValue(std::vector<const Instruction*> 
     return result;
 }
 
-Value Executor::ExecuteSwitchStatement(const Instruction* ins, scoped_refptr<VMContext> ctx) {
+Value Executor::ExecuteSwitchStatement(const Instruction* ins, VMContext* ctx) {
     const Instruction* value = GetInstruction(ins->Refs[0]);
     const Instruction* cases = GetInstruction(ins->Refs[1]);
     const Instruction* defaultBranch = GetInstruction(ins->Refs[2]);

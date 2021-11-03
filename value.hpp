@@ -54,6 +54,8 @@ const int kBytes = 4;
 const int kArray = 5;
 const int kMap = 6;
 const int kObject = 7;
+const int kFunction = 8;
+const int kRuntimeFunction = 9;
 const int kResource = 10;
 
 inline std::string ToString(int Type) {
@@ -74,6 +76,10 @@ inline std::string ToString(int Type) {
         return "bytes";
     case ValueType::kResource:
         return "resource";
+    case ValueType::kFunction:
+        return "function";
+    case ValueType::kRuntimeFunction:
+        return "function";
     default:
         return "Unknown";
     }
@@ -124,7 +130,10 @@ inline bool IsArray(Object* obj) {
 
 typedef scoped_refptr<Object> OBJECTPTR;
 typedef scoped_refptr<Resource> RESOURCE;
-
+class VMContext; 
+class Executor;
+typedef Value (*RUNTIME_FUNCTION)(std::vector<Value>& values, VMContext* ctx, Executor* vm);
+class Instruction;
 class Value {
 public:
     typedef int64_t INTVAR;
@@ -132,6 +141,8 @@ public:
     union {
         INTVAR Integer;
         double Float;
+        const Instruction * Function;
+        RUNTIME_FUNCTION    RuntimeFunction;
     };
     std::string bytes;
     RESOURCE resource;
@@ -150,6 +161,8 @@ public:
     Value(const char* str);
     Value(const Value& val);
     Value(Resource*);
+    Value(const Instruction* );
+    Value(RUNTIME_FUNCTION func );
     Value(const std::vector<Value>& val);
     Value& operator=(const Value& right);
 
@@ -164,6 +177,9 @@ public:
     bool IsSameType(const Value& right) const { return Type == right.Type; }
     bool IsObject() const {
         return Type == ValueType::kObject || Type == ValueType::kArray || Type == ValueType::kMap;
+    }
+    bool IsFunction() {
+        return Type == ValueType::kFunction || Type == ValueType::kRuntimeFunction;
     }
 
     Value& operator+=(const Value& right);
